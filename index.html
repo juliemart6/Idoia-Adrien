@@ -1,0 +1,866 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-[#FAF7F2] text-[#2C302E]">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mon Carnet de Recettes & Batch Cooking</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brandBg: '#FAF7F2', brandCard: '#FFFFFF', brandCardMuted: '#F4EFEA',
+            brandPrimary: '#2F4F4F', brandPrimaryHover: '#1E3333',
+            brandAccent: '#D2691E', brandAccentHover: '#A0522D',
+            brandDark: '#2C302E', brandBorder: '#E2DACF'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    .chart-container { position: relative; width: 100%; max-width: 500px; margin: 0 auto; height: 260px; max-height: 300px; }
+    @media (min-width: 768px) { .chart-container { height: 280px; } }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #FAF7F2; }
+    ::-webkit-scrollbar-thumb { background: #D3C7B8; border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: #B5A695; }
+    @media print {
+      body { background-color: white !important; color: black !important; }
+      header, .nav-tab, button, #sec-dashboard { display: none !important; }
+      main { padding: 0 !important; margin: 0 !important; }
+      .bg-white { border: none !important; box-shadow: none !important; }
+      #sec-shopping { display: block !important; }
+      #shoppingAislesContainer { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 1rem !important; }
+      .print-title::before { content: "📝 Mes Courses"; display: block; font-size: 1.5rem; font-weight: bold; margin-bottom: 1rem; }
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col font-sans antialiased bg-[#FAF7F2] overflow-hidden" id="body-container">
+
+  <!-- ÉCRAN DE CONNEXION -->
+  <div id="login-screen" class="fixed inset-0 z-[100] bg-brandBg/95 backdrop-blur-xl flex flex-col items-center justify-center p-6 transition-opacity duration-500">
+    <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center border border-brandBorder">
+      <span class="text-5xl mb-4 block">🥗</span>
+      <h2 class="text-2xl font-bold text-brandDark mb-2">Mon Carnet Équilibre</h2>
+      <p class="text-sm text-stone-500 mb-8">Connectez-vous pour synchroniser vos menus et recettes.</p>
+      
+      <input type="email" id="email-input" placeholder="Adresse e-mail" class="w-full text-center text-lg font-medium bg-stone-50 border-2 border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-brandPrimary mb-3 transition-colors">
+      <input type="password" id="pwd-input" placeholder="Mot de passe" class="w-full text-center text-lg font-medium bg-stone-50 border-2 border-stone-200 rounded-xl px-4 py-3 outline-none focus:border-brandPrimary mb-6 transition-colors">
+      
+      <button onclick="handleLogin()" id="btn-login" class="w-full bg-brandPrimary hover:bg-brandPrimaryHover text-white font-bold py-4 rounded-xl transition shadow-lg flex justify-center items-center">
+        Se connecter
+      </button>
+      <p id="login-error" class="text-red-500 text-sm font-bold mt-4 opacity-0 transition-opacity">Identifiants incorrects !</p>
+    </div>
+  </div>
+
+  <header class="bg-white border-b border-brandBorder sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex items-center space-x-3">
+        <span class="text-3xl bg-emerald-100 p-2 rounded-2xl">🥗</span>
+        <div>
+          <h1 class="text-xl sm:text-2xl font-bold tracking-tight text-brandDark">Mon Carnet de Recettes <span class="text-emerald-600 text-sm">Équilibre</span></h1>
+          <p class="text-xs text-stone-500 font-medium">Recettes saines (Calculées pour 4 portions par défaut)</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="switchTab('planning')" class="flex items-center gap-2 bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs sm:text-sm font-semibold px-3 py-1.5 rounded-xl border border-stone-200 transition">
+          <span>🗓️ Menu :</span><span id="headerMenuCount" class="bg-brandAccent text-white px-2 py-0.5 rounded-full text-xs font-bold">0 plat</span>
+        </button>
+        <button onclick="switchTab('shopping')" class="flex items-center gap-2 bg-brandPrimary text-white text-xs sm:text-sm font-semibold px-3.5 py-1.5 rounded-xl hover:bg-brandPrimaryHover transition shadow-sm">
+          <span>🛒 Courses</span><span id="headerShoppingBadge" class="bg-white/20 text-white px-1.5 py-0.5 rounded-lg text-xs font-bold">0</span>
+        </button>
+        <button onclick="handleLogout()" class="bg-stone-100 hover:bg-stone-200 text-stone-600 text-xs px-3 py-1.5 rounded-xl border border-stone-200 transition">
+          🔓 Déco
+        </button>
+      </div>
+    </div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex space-x-1 sm:space-x-4 border-t border-stone-100 overflow-x-auto no-scrollbar text-sm font-medium">
+      <button id="tab-recipes" onclick="switchTab('recipes')" class="nav-tab text-brandPrimary border-b-2 border-brandPrimary py-2.5 px-3 whitespace-nowrap font-semibold">📖 Les Recettes</button>
+      <button id="tab-planning" onclick="switchTab('planning')" class="nav-tab text-stone-500 hover:text-brandDark border-b-2 border-transparent py-2.5 px-3 whitespace-nowrap">🗓️ Mon Planning (<span id="planningTabBadge">0</span>)</button>
+      <button id="tab-shopping" onclick="switchTab('shopping')" class="nav-tab text-stone-500 hover:text-brandDark border-b-2 border-transparent py-2.5 px-3 whitespace-nowrap">🛒 Liste de Courses</button>
+      <button id="tab-dashboard" onclick="switchTab('dashboard')" class="nav-tab text-stone-500 hover:text-brandDark border-b-2 border-transparent py-2.5 px-3 whitespace-nowrap">📊 Astuces Préparation</button>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <!-- SECTION RECIPES -->
+    <section id="sec-recipes" class="space-y-6">
+      <div class="bg-white p-4 rounded-2xl border border-brandBorder shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-brandDark">Bibliothèque de Recettes (Healthy)</h2>
+          <p class="text-sm text-stone-600 mt-1">Conçues pour vos équipements (Four, Plaques, Thermomix). Ajoutez vos propres recettes !</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="openRecipeForm()" class="inline-flex items-center gap-2 bg-brandAccent hover:bg-brandAccentHover text-white font-semibold px-4 py-2.5 rounded-xl text-sm transition shadow-sm">
+            + Ajouter une recette
+          </button>
+          <button onclick="pickRandomRecipe()" class="inline-flex items-center gap-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-semibold px-4 py-2.5 rounded-xl border border-emerald-200 text-sm transition">
+            🎲 Idée au hasard !
+          </button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded-2xl border border-brandBorder shadow-sm space-y-3">
+        <div class="flex flex-col sm:flex-row gap-2">
+          <div class="relative flex-1">
+            <input type="text" id="searchInput" oninput="applyFilters()" placeholder="Rechercher (ex: poulet, brocolis, quinoa)..." class="w-full pl-10 pr-4 py-2.5 bg-stone-50 border border-stone-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brandPrimary">
+            <span class="absolute left-3.5 top-3 text-stone-400">🔍</span>
+          </div>
+          <button id="btn-fav-filter" onclick="toggleFavFilter()" class="border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl transition text-sm font-semibold flex items-center gap-2 shrink-0">
+            🤍 Mes Coups de Cœur
+          </button>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs sm:text-sm">
+          <span class="self-center font-bold text-stone-500 text-xs uppercase mr-1">Protéines:</span>
+          <button onclick="setProteinFilter('all')" class="prot-filter active-filter px-3 py-1.5 rounded-lg border font-medium">Toutes</button>
+          <button onclick="setProteinFilter('poulet')" class="prot-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🐔 Volaille</button>
+          <button onclick="setProteinFilter('boeuf')" class="prot-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🥩 Bœuf/Veau</button>
+          <button onclick="setProteinFilter('porc')" class="prot-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🥓 Bacon/Porc</button>
+          <button onclick="setProteinFilter('poisson')" class="prot-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🐟 Poisson</button>
+        </div>
+        <div class="flex flex-wrap gap-2 text-xs sm:text-sm pt-1 border-t border-stone-100">
+          <span class="self-center font-bold text-stone-500 text-xs uppercase mr-1">Appareil:</span>
+          <button onclick="setEquipFilter('all')" class="equip-filter active-filter px-3 py-1.5 rounded-lg border font-medium">Tous</button>
+          <button onclick="setEquipFilter('four')" class="equip-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🔥 Four</button>
+          <button onclick="setEquipFilter('plaques')" class="equip-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🍳 Plaques</button>
+          <button onclick="setEquipFilter('thermomix')" class="equip-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg">🤖 Thermomix</button>
+        </div>
+      </div>
+      <div class="flex items-center justify-between text-xs sm:text-sm text-stone-500 font-medium px-1">
+        <span id="recipesResultCount">Affichage des recettes</span>
+        <button onclick="resetFilters()" class="text-brandAccent hover:underline text-xs">Réinitialiser</button>
+      </div>
+      <div id="recipeGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"></div>
+    </section>
+
+    <!-- SECTION PLANNING -->
+    <section id="sec-planning" class="hidden space-y-6 print-title">
+      <div class="bg-white p-5 rounded-2xl border border-brandBorder shadow-sm">
+        <h2 class="text-lg font-bold text-brandDark">Votre Menu de la Semaine</h2>
+        <p class="text-sm text-stone-600 mt-1">Gérez facilement les repas prévus pour les jours à venir.</p>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white p-4 rounded-2xl border shadow-sm text-center">
+          <p class="text-xs font-bold uppercase text-stone-400">Recettes retenues</p>
+          <p id="planCountBig" class="text-3xl font-extrabold text-brandPrimary mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border shadow-sm text-center">
+          <p class="text-xs font-bold uppercase text-stone-400">Total Portions</p>
+          <p id="planPortionsBig" class="text-3xl font-extrabold text-brandAccent mt-1">0</p>
+        </div>
+        <div class="bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-center">
+          <button onclick="switchTab('shopping')" class="w-full bg-brandPrimary hover:bg-brandPrimaryHover text-white font-bold py-2.5 px-4 rounded-xl shadow">🛒 Voir les courses</button>
+          <button onclick="clearPlanning()" class="text-xs text-stone-400 hover:text-red-500 underline mt-2 text-center">Vider le menu</button>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl border shadow-sm p-4 sm:p-6">
+        <h3 class="text-base font-bold text-brandDark mb-4">📋 Recettes de votre semaine</h3>
+        <div id="planningListContainer" class="space-y-4"></div>
+      </div>
+    </section>
+
+    <!-- SECTION SHOPPING -->
+    <section id="sec-shopping" class="hidden space-y-6 print-title">
+      <div class="bg-white p-5 rounded-2xl border shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+        <div>
+          <h2 class="text-lg font-bold text-brandDark">Liste de Courses</h2>
+          <p class="text-sm text-stone-600">Générée automatiquement par rayons.</p>
+        </div>
+        <div class="flex gap-2">
+          <button onclick="window.print()" class="bg-stone-100 hover:bg-stone-200 px-3 py-2 rounded-xl text-xs font-bold border border-stone-200">🖨️ Imprimer</button>
+          <button onclick="resetShoppingCheckboxes()" class="bg-stone-100 hover:bg-stone-200 px-3 py-2 rounded-xl text-xs font-bold border border-stone-200">🔄 Décocher</button>
+        </div>
+      </div>
+      <div class="bg-white p-4 rounded-2xl border shadow-sm flex flex-col sm:flex-row gap-2 print:hidden">
+        <input type="text" id="customItemInput" placeholder="Ajouter (ex: Sopalin)..." class="flex-1 bg-stone-50 border rounded-xl px-3.5 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brandPrimary">
+        <select id="customItemAisle" class="bg-stone-50 border rounded-xl px-3 py-2 text-xs focus:outline-none">
+          <option value="Boucherie / Poissonnerie">🥩 Boucherie/Poissons</option>
+          <option value="Légumes & Fruits">🥦 Légumes/Fruits</option>
+          <option value="Épicerie & Féculents">🌾 Épicerie</option>
+          <option value="Produits Frais & Crémerie">🧀 Frais/Crémerie</option>
+          <option value="Divers / Hors Cuisine" selected>🛍️ Divers</option>
+        </select>
+        <button onclick="addCustomShoppingItem()" class="bg-brandAccent hover:bg-brandAccentHover text-white font-bold px-4 py-2 rounded-xl text-sm">+ Ajouter</button>
+      </div>
+      <div id="shoppingAislesContainer" class="grid grid-cols-1 md:grid-cols-2 gap-5"></div>
+    </section>
+
+    <!-- SECTION DASHBOARD -->
+    <section id="sec-dashboard" class="hidden space-y-6">
+      <div class="bg-white p-5 rounded-2xl border shadow-sm">
+        <h2 class="text-lg font-bold text-brandDark">Astuces Frigo & Équipement</h2>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+        <div class="bg-amber-50 border border-amber-200 p-5 rounded-2xl space-y-2">
+          <div class="text-2xl">🧊</div><h4 class="font-bold text-amber-900">Conservation</h4>
+          <p class="text-xs text-stone-700">Plats conservés 3 à 4 jours max dans des boîtes hermétiques au frigo. Séparez toujours la vinaigrette des crudités pour qu'elles restent croquantes !</p>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 p-5 rounded-2xl space-y-2">
+          <div class="text-2xl">🔥</div><h4 class="font-bold text-emerald-900">Réchauffage</h4>
+          <p class="text-xs text-stone-700">Si vous réchauffez un plat (surtout le riz ou les pâtes), ajoutez un petit filet d'eau avant pour éviter qu'il ne dessèche.</p>
+        </div>
+        <div class="bg-sky-50 border border-sky-200 p-5 rounded-2xl space-y-2">
+          <div class="text-2xl">🤖</div><h4 class="font-bold text-sky-900">Le Thermomix</h4>
+          <p class="text-xs text-stone-700">Le meilleur allié santé ! Privilégiez le Varoma pour une cuisson vapeur parfaite des légumes et poissons sans matière grasse ajoutée.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- MODAL DETAILS RECETTE -->
+  <div id="recipeModal" class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-2xl max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-5 bg-stone-50 border-b flex items-start justify-between gap-3 shrink-0">
+        <div>
+          <div class="flex items-center gap-2 mb-1" id="modalBadges"></div>
+          <h3 id="modalTitle" class="text-xl font-bold text-brandDark">Titre Recette</h3>
+        </div>
+        <button onclick="closeModal()" class="text-stone-400 hover:text-stone-700 text-2xl font-bold p-1 rounded-lg">✕</button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-6 text-sm">
+        <div class="grid grid-cols-3 gap-3 bg-brandCardMuted p-3.5 rounded-2xl text-center text-xs font-semibold">
+          <div>⏱️ <span id="modalPrepTime"></span></div>
+          <div>🔥 <span id="modalCookTime"></span></div>
+          <div>👨‍🍳 <span id="modalEquipText"></span></div>
+        </div>
+        <div>
+          <h4 class="font-bold text-brandDark text-base mb-2">🥕 Ingrédients (4 portions)</h4>
+          <ul id="modalIngredientsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-stone-700 font-medium"></ul>
+        </div>
+        <div>
+          <h4 class="font-bold text-brandDark text-base mb-2">👨‍🍳 Étapes</h4>
+          <ol id="modalStepsList" class="space-y-2.5 text-stone-700 list-decimal list-inside"></ol>
+        </div>
+        <div class="bg-emerald-50 border border-emerald-200 p-4 rounded-2xl text-xs text-emerald-900">
+          <p class="font-bold">💡 Astuce & Santé :</p>
+          <p id="modalGamelleTip" class="text-stone-700 mt-1"></p>
+        </div>
+      </div>
+      <div class="p-4 bg-stone-50 border-t flex justify-between items-center shrink-0">
+        <div>
+          <button onclick="closeModal()" class="px-4 py-2 text-stone-600 font-semibold text-xs rounded-xl hover:bg-stone-200">Fermer</button>
+          <button id="modalEditBtn" class="px-4 py-2 text-brandPrimary font-semibold text-xs rounded-xl hover:bg-stone-200 border border-brandBorder ml-2">✏️ Modifier</button>
+        </div>
+        <button id="modalActionBtn" onclick="" class="bg-brandPrimary hover:bg-brandPrimaryHover text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow">+ Ajouter au menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL AJOUT/MODIFICATION RECETTE -->
+  <div id="addRecipeModal" class="fixed inset-0 bg-stone-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white w-full max-w-lg max-h-[90vh] rounded-3xl shadow-2xl overflow-hidden flex flex-col">
+      <div class="p-5 bg-stone-50 border-b flex items-center justify-between shrink-0">
+        <h3 id="addRecipeModalTitle" class="text-lg font-bold text-brandDark">Ajouter une nouvelle recette</h3>
+        <button onclick="closeAddRecipeModal()" class="text-stone-400 hover:text-stone-700 text-2xl font-bold">✕</button>
+      </div>
+      <div class="p-6 overflow-y-auto space-y-4 text-sm">
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Titre de la recette</label>
+          <input type="text" id="newRecTitle" placeholder="Ex: Wok de légumes verts au tofu" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brandPrimary">
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Protéine</label>
+            <select id="newRecProt" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm">
+              <option value="poulet">🐔 Volaille</option>
+              <option value="boeuf">🥩 Bœuf/Veau</option>
+              <option value="porc">🥓 Bacon/Porc</option>
+              <option value="poisson">🐟 Poisson</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Appareil</label>
+            <select id="newRecEquip" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2.5 text-sm">
+              <option value="plaques">🍳 Plaques/Poêle</option>
+              <option value="four">🔥 Four</option>
+              <option value="thermomix">🤖 Thermomix</option>
+            </select>
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Temps prépa</label>
+            <input type="text" id="newRecPrep" value="10 min" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Temps cuisson</label>
+            <input type="text" id="newRecCook" value="15 min" class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-sm">
+          </div>
+        </div>
+        
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Ingrédients</label>
+          <div id="dynamicIngredientsContainer" class="space-y-2 mb-2">
+            <!-- JavaScript va injecter les lignes ici -->
+          </div>
+          <button type="button" onclick="addIngredientRow()" class="text-brandAccent font-bold text-xs hover:underline flex items-center gap-1">
+            <span class="text-lg leading-none">+</span> Ajouter un ingrédient
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Étapes (une par ligne)</label>
+          <textarea id="newRecSteps" rows="4" placeholder="1. Cuire au Thermomix...&#10;2. Ajouter le quinoa..." class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-sm"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-bold uppercase tracking-wider text-stone-500 mb-1">Astuce / Conseil</label>
+          <input type="text" id="newRecTip" placeholder="Se conserve très bien..." class="w-full bg-stone-50 border border-stone-200 rounded-xl px-3.5 py-2 text-sm">
+        </div>
+      </div>
+      <div class="p-4 bg-stone-50 border-t flex justify-end gap-2 shrink-0">
+        <button onclick="closeAddRecipeModal()" class="px-4 py-2 text-stone-600 font-semibold text-xs rounded-xl hover:bg-stone-200">Annuler</button>
+        <button id="addRecipeModalBtn" onclick="submitNewRecipe()" class="bg-brandAccent text-white font-bold px-5 py-2.5 rounded-xl text-sm shadow">Enregistrer la recette</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+    import { getAuth, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+    import { getFirestore, doc, setDoc, updateDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBeHd4_InbQ6RQZhTsYjhgrhIWm7_zU8yI",
+      authDomain: "idoia-557a3.firebaseapp.com",
+      projectId: "idoia-557a3",
+      storageBucket: "idoia-557a3.firebasestorage.app",
+      messagingSenderId: "423163077917",
+      appId: "1:423163077917:web:b0b59c9774dc73335d2df4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const baseRecipesData = [
+      { id: 1, title: "Poulet Basquaise au riz complet", prot: "poulet", equip: "thermomix", prep: "15 min", cook: "20 min", ingredients: [{name:"Blancs de poulet",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Poivrons tricolores",qty:"3 pièces",aisle:"Légumes & Fruits"},{name:"Tomates concassées",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Oignon & ail",qty:"1 oignon, 2 gousses",aisle:"Légumes & Fruits"},{name:"Riz complet",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Mettre l'oignon et l'ail dans le bol, mixer 5 sec / vit 5.","Ajouter les poivrons en lanières et 1 filet d'huile. Rissoler 5 min / 120°C / vit 1.","Ajouter le poulet en gros dés, les tomates, sel, poivre. Cuire 15 min / 100°C / Sens Inverse / mijotage.","Servir avec le riz complet cuit à part."], gamelleTip: "Mélanger le riz avec la sauce riche en légumes pour un plat rassasiant et pauvre en gras." },
+      { id: 2, title: "Curry de dinde & courgettes au lait de coco light", prot: "poulet", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Blanc de dinde",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes",qty:"3",aisle:"Légumes & Fruits"},{name:"Lait de coco light",qty:"20cl",aisle:"Épicerie & Féculents"},{name:"Pâte de curry doux",qty:"1 c.à.s",aisle:"Épicerie & Féculents"},{name:"Quinoa",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Faire revenir la dinde et les courgettes en dés à la poêle sans ajout de gras.","Ajouter la pâte de curry et un fond d'eau pour déglacer.","Laisser mijoter 10 min. Ajouter le lait de coco light hors du feu.","Servir sur le quinoa."], gamelleTip: "Le lait de coco allégé réduit de moitié les lipides tout en gardant l'onctuosité." },
+      { id: 3, title: "Wok de poulet, brocolis & sésame", prot: "poulet", equip: "plaques", prep: "10 min", cook: "12 min", ingredients: [{name:"Blancs de poulet",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Brocolis frais",qty:"500g",aisle:"Légumes & Fruits"},{name:"Sauce Soja salée",qty:"4 c.à.s",aisle:"Épicerie & Féculents"},{name:"Graines de sésame",qty:"1 c.à.s",aisle:"Épicerie & Féculents"},{name:"Nouilles de sarrasin (Soba)",qty:"150g",aisle:"Épicerie & Féculents"}], steps: ["Cuire les brocolis à la vapeur 6 min pour garder leur croquant.","Dorer le poulet à la poêle, déglacer à la sauce soja.","Incorporer les brocolis et les nouilles précuites.","Saupoudrer de sésame."], gamelleTip: "Les nouilles Soba ont un index glycémique bas, idéal pour un repas équilibré et digeste." },
+      { id: 4, title: "Aiguillettes de poulet au four & fondue d'épinards", prot: "poulet", equip: "four", prep: "10 min", cook: "15 min", ingredients: [{name:"Aiguillettes de poulet",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Épinards frais",qty:"500g",aisle:"Légumes & Fruits"},{name:"Jus de citron",qty:"1",aisle:"Légumes & Fruits"},{name:"Patates douces",qty:"2",aisle:"Légumes & Fruits"}], steps: ["Préchauffer le four à 200°C.","Disposer les aiguillettes sur une plaque avec le citron, cuire 15 min.","Faire fondre les épinards à la poêle avec une pointe d'ail.","Accompagner de cubes de patates douces vapeur."], gamelleTip: "Un plat ultra-maigre, les épinards libèrent un peu d'eau à la réchauffe." },
+      { id: 5, title: "Poulet aux champignons & orge perlé", prot: "poulet", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Orge perlé",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Blancs de poulet",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Champignons de Paris",qty:"400g",aisle:"Légumes & Fruits"},{name:"Bouillon de légumes",qty:"600ml",aisle:"Épicerie & Féculents"}], steps: ["Hacher 1 oignon (5 sec / vit 5), rissoler 3 min / 120°C / vit 1.","Ajouter l'orge, nacrer 3 min / 100°C / Sens inverse / vit 1.","Ajouter le bouillon, le poulet et les champignons. Cuire 20 min / 100°C / Sens inverse / Mijotage."], gamelleTip: "L'orge perlé est une excellente alternative au riz, très riche en fibres." },
+      { id: 6, title: "Poivrons farcis à la dinde & quinoa (Four)", prot: "poulet", equip: "four", prep: "15 min", cook: "35 min", ingredients: [{name:"Poivrons rouges",qty:"4",aisle:"Légumes & Fruits"},{name:"Dinde hachée",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Quinoa cuit",qty:"150g",aisle:"Épicerie & Féculents"},{name:"Coulis de tomate nature",qty:"150ml",aisle:"Épicerie & Féculents"}], steps: ["Couper le chapeau des poivrons et les vider.","Mélanger la dinde, le quinoa et le coulis, assaisonner.","Farcir les poivrons, cuire 35 min à 180°C dans un plat couvert."], gamelleTip: "La dinde hachée est très peu grasse, et le poivron fond à la cuisson." },
+      { id: 7, title: "Tajine de poulet aux carottes & citron confit", prot: "poulet", equip: "thermomix", prep: "15 min", cook: "25 min", ingredients: [{name:"Blancs de poulet",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Carottes",qty:"6",aisle:"Légumes & Fruits"},{name:"Citron confit",qty:"1",aisle:"Légumes & Fruits"},{name:"Semoule complète",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Mettre le poulet, curcuma, carottes en tronçons et 20cl d'eau dans le bol.","Cuire 25 min / 100°C / Sens inverse / mijotage.","Ajouter le citron confit en lanières à la fin.","Servir avec la semoule complète."], gamelleTip: "On oublie l'huile d'olive, les épices et le citron font tout le travail aromatique." },
+      { id: 8, title: "Dinde sautée aux haricots verts & tomates", prot: "poulet", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Émincé de dinde",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Haricots verts (frais ou surgelés)",qty:"500g",aisle:"Légumes & Fruits"},{name:"Tomates cerises",qty:"250g",aisle:"Légumes & Fruits"},{name:"Pâtes au blé complet",qty:"150g",aisle:"Épicerie & Féculents"}], steps: ["Faire sauter la dinde à la poêle.","Ajouter les tomates cerises coupées en deux pour qu'elles fassent une petite sauce.","Ajouter les haricots précuits à la vapeur et mélanger avec les pâtes."], gamelleTip: "L'eau des tomates cerises crée un liant naturel sans ajout de matière grasse." },
+      { id: 9, title: "Boulettes de volaille maison & tagliatelles de courgette", prot: "poulet", equip: "plaques", prep: "15 min", cook: "15 min", ingredients: [{name:"Haché de volaille",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Sauce tomate basilic",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Courgettes (en spaghettis)",qty:"4",aisle:"Légumes & Fruits"}], steps: ["Former des boulettes avec la volaille hachée, sel, poivre.","Faire dorer à la poêle antiadhésive sans matière grasse.","Plonger dans la sauce tomate chaude. Mijoter 10 min.","Servir sur les spaghettis de courgette crus ou juste poêlés 1 min."], gamelleTip: "Repas très bas en glucides, parfait pour un dîner léger." },
+      { id: 10, title: "Poulet rôti au paprika & légumes d'été", prot: "poulet", equip: "four", prep: "10 min", cook: "35 min", ingredients: [{name:"Blancs de poulet",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes & Aubergines",qty:"2 de chaque",aisle:"Légumes & Fruits"},{name:"Paprika fumé",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Couper les légumes en dés, saupoudrer de paprika.","Placer le poulet et les légumes sur une plaque de four.","Cuire 35 min à 200°C sans huile (ou un simple pschitt)."], gamelleTip: "Le paprika fumé donne un goût puissant de barbecue sans les calories." },
+      { id: 11, title: "Gratin de chou-fleur au poulet (sans béchamel)", prot: "poulet", equip: "four", prep: "15 min", cook: "20 min", ingredients: [{name:"Chou-fleur",qty:"1 grosse tête",aisle:"Légumes & Fruits"},{name:"Poulet rôti émincé",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Skyr nature",qty:"200g",aisle:"Produits Frais & Crémerie"},{name:"Parmesan",qty:"30g",aisle:"Produits Frais & Crémerie"}], steps: ["Cuire le chou-fleur à la vapeur.","Mélanger avec le poulet et le Skyr assaisonné (sel, poivre, muscade).","Saupoudrer de parmesan et gratiner au four 15 min à 200°C."], gamelleTip: "Le Skyr remplace la béchamel : 0% de matières grasses, 100% de protéines." },
+      { id: 12, title: "Wok de poulet aux pousses de bambou", prot: "poulet", equip: "plaques", prep: "12 min", cook: "10 min", ingredients: [{name:"Poulet émincé",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Pousses de bambou & Champignons noirs",qty:"300g",aisle:"Légumes & Fruits"},{name:"Sauce soja & Gingembre",qty:"3 c.à.s, 1 pouce",aisle:"Épicerie & Féculents"},{name:"Riz basmati",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Saisir le poulet vif au wok.","Ajouter les pousses de bambou et les champignons réhydratés.","Déglacer au soja et gingembre frais râpé. Servir avec le riz."], gamelleTip: "Un plat d'inspiration asiatique ultra sain, les légumes asiatiques apportent du volume." },
+      { id: 13, title: "Hachis Parmentier léger (Bœuf 5% & Chou-fleur)", prot: "boeuf", equip: "four", prep: "15 min", cook: "20 min", ingredients: [{name:"Bœuf haché 5% MG",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Purée (50% patate / 50% chou-fleur)",qty:"800g",aisle:"Légumes & Fruits"},{name:"Oignon",qty:"1",aisle:"Légumes & Fruits"}], steps: ["Faire revenir le bœuf 5% et l'oignon.","Étaler la viande au fond du plat.","Couvrir de la purée mixte sans beurre. Cuire au four 20 min à 200°C."], gamelleTip: "Le chou-fleur abaisse drastiquement la charge glycémique de la purée." },
+      { id: 14, title: "Chili con carne healthy (Thermomix)", prot: "boeuf", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Bœuf haché 5%",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Haricots rouges",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Pulpe de tomates",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Coriandre fraîche",qty:"1 botte",aisle:"Légumes & Fruits"}], steps: ["Mettre oignon et bœuf dans le bol, rissoler 5 min / 120°C / Sens inverse / mijotage.","Ajouter tomates, haricots rincés, épices Chili.","Cuire 15 min / 100°C / Sens inverse / mijotage. Parsemer de coriandre."], gamelleTip: "Les haricots rouges fournissent une énergie lente parfaite pour être calé durablement." },
+      { id: 15, title: "Pâtes complètes au bœuf & coulis de tomate", prot: "boeuf", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Bœuf haché 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Coulis de tomate nature",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Pâtes au blé complet",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Basilic frais",qty:"1 botte",aisle:"Légumes & Fruits"}], steps: ["Cuire le bœuf à la sauteuse à sec.","Verser le coulis, assaisonner.","Mélanger avec les pâtes complètes cuites. Ajouter le basilic frais."], gamelleTip: "Une bolognaise basique, efficace, sans huile ajoutée." },
+      { id: 16, title: "Bœuf sauté aux pois gourmands", prot: "boeuf", equip: "plaques", prep: "10 min", cook: "8 min", ingredients: [{name:"Rumsteck émincé",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Pois gourmands",qty:"300g",aisle:"Légumes & Fruits"},{name:"Sauce Soja salée",qty:"4 c.à.s",aisle:"Épicerie & Féculents"},{name:"Riz thaï",qty:"150g",aisle:"Épicerie & Féculents"}], steps: ["Faire sauter les pois gourmands 4 min pour les garder croquants.","Saisir le bœuf 2 min vif.","Déglacer au soja, servir sur le riz."], gamelleTip: "Ne le réchauffez pas trop fort pour garder la viande tendre." },
+      { id: 17, title: "Boulettes de bœuf au cumin & purée de carottes", prot: "boeuf", equip: "four", prep: "15 min", cook: "15 min", ingredients: [{name:"Bœuf haché 5%",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Cumin en poudre",qty:"1 c.a.c",aisle:"Épicerie & Féculents"},{name:"Purée de carottes maison",qty:"600g",aisle:"Légumes & Fruits"}], steps: ["Mélanger le bœuf avec le cumin, sel, poivre. Former des boulettes.","Cuire au four 15 min à 200°C sur papier cuisson.","Dresser avec la purée de carottes."], gamelleTip: "Cuire les boulettes au four évite qu'elles ne baignent dans leur jus à la poêle." },
+      { id: 18, title: "Mijoté de bœuf aux carottes (Thermomix)", prot: "boeuf", equip: "thermomix", prep: "15 min", cook: "45 min", ingredients: [{name:"Bœuf maigre à braiser",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Carottes",qty:"8 grosses",aisle:"Légumes & Fruits"},{name:"Bouillon de bœuf",qty:"300ml",aisle:"Épicerie & Féculents"}], steps: ["Ajouter la viande en cubes, les carottes en rondelles épaisses et le bouillon.","Cuire 45 min / 100°C / Sens inverse / mijotage."], gamelleTip: "Le plat traditionnel allégé, sans lardons ni vin. Très riche en légumes." },
+      { id: 19, title: "Sauté de veau printanier léger", prot: "boeuf", equip: "thermomix", prep: "15 min", cook: "35 min", ingredients: [{name:"Veau maigre",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Petits pois & Asperges",qty:"400g",aisle:"Légumes & Fruits"},{name:"Jus de citron & Herbes",qty:"1 jus",aisle:"Légumes & Fruits"},{name:"Pommes de terre vapeur",qty:"300g",aisle:"Légumes & Fruits"}], steps: ["Placer veau et eau dans le bol Thermomix. Cuire 20 min / 100°C / Sens inverse / mijotage.","Ajouter les légumes verts les 15 dernières minutes.","Égoutter légèrement, ajouter le citron et les herbes fraîches."], gamelleTip: "Un plat frais, vert, protéiné. Sans aucune crème." },
+      { id: 20, title: "Bœuf tomate & olives (façon Marengo)", prot: "boeuf", equip: "thermomix", prep: "15 min", cook: "30 min", ingredients: [{name:"Bœuf à braiser maigre",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Tomates pelées",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Olives noires",qty:"30g",aisle:"Épicerie & Féculents"},{name:"Pâtes complètes",qty:"150g",aisle:"Épicerie & Féculents"}], steps: ["Mettre la viande, les tomates, l'ail et les herbes dans le Thermomix.","Cuire 30 min / 100°C / Sens inverse / Mijotage.","Ajouter les olives à la fin. Servir avec les pâtes."], gamelleTip: "Sauce à base de tomates, évite le dessèchement des pâtes à la réchauffe." },
+      { id: 21, title: "Tian de légumes au bœuf haché (Four)", prot: "boeuf", equip: "four", prep: "20 min", cook: "40 min", ingredients: [{name:"Bœuf haché 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes & Tomates",qty:"2 de chaque",aisle:"Légumes & Fruits"},{name:"Herbes de Provence",qty:"1 c.a.s",aisle:"Épicerie & Féculents"}], steps: ["Étaler le bœuf cru assaisonné au fond d'un plat à gratin.","Disposer les légumes en rondelles par-dessus en quinconce.","Saupoudrer d'herbes, cuire 40 min à 190°C."], gamelleTip: "Le jus des légumes cuit et parfume la viande en dessous. Zéro gras." },
+      { id: 22, title: "Bœuf émincé, pak choï & champignons", prot: "boeuf", equip: "plaques", prep: "10 min", cook: "8 min", ingredients: [{name:"Bœuf émincé",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Chou Pak Choï",qty:"300g",aisle:"Légumes & Fruits"},{name:"Champignons bruns",qty:"200g",aisle:"Légumes & Fruits"},{name:"Sauce soja",qty:"3 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Sauter le chou et les champignons 4 min à sec.","Ajouter le bœuf 2 min vif.","Déglacer au soja."], gamelleTip: "Des légumes croquants, beaucoup d'eau végétale, très digeste." },
+      { id: 23, title: "Steaks grillés & haricots verts vapeur", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Steaks de bœuf (tende de tranche)",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Haricots verts",qty:"600g",aisle:"Légumes & Fruits"},{name:"Ail & Persil",qty:"1 gousse",aisle:"Légumes & Fruits"}], steps: ["Cuire les haricots verts à la vapeur.","Cuire les steaks à la poêle, sans gras.","Mélanger l'ail écrasé et le persil aux haricots chauds."], gamelleTip: "Le plat le plus simple et le plus efficace pour la santé musculaire." },
+      { id: 24, title: "Tomates farcies légères au bœuf", prot: "boeuf", equip: "four", prep: "10 min", cook: "35 min", ingredients: [{name:"Grosses tomates à farcir",qty:"4",aisle:"Légumes & Fruits"},{name:"Bœuf haché 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Riz complet cuit",qty:"100g",aisle:"Épicerie & Féculents"}], steps: ["Évider les tomates.","Mélanger bœuf cru, riz, pulpe de la tomate, herbes.","Farcir. Cuire 35 min au four à 180°C."], gamelleTip: "Plat complet parfait pour le batch cooking. Le jus de tomate hydrate la farce." },
+      { id: 25, title: "Filet mignon à la moutarde (Thermomix)", prot: "porc", equip: "thermomix", prep: "10 min", cook: "25 min", ingredients: [{name:"Filet mignon de porc",qty:"600g",aisle:"Boucherie / Poissonnerie"},{name:"Carottes",qty:"400g",aisle:"Légumes & Fruits"},{name:"Moutarde à l'ancienne",qty:"2 c.à.s",aisle:"Épicerie & Féculents"},{name:"Skyr",qty:"2 c.a.s",aisle:"Produits Frais & Crémerie"}], steps: ["Couper le filet mignon en médaillons.","Mettre viande, carottes en rondelles, moutarde, 10cl d'eau.","Cuire 20 min / 100°C / Sens inverse / mijotage. Lier au Skyr hors du bol."], gamelleTip: "Le filet mignon est la partie la plus maigre du porc. La moutarde relève tout." },
+      { id: 26, title: "Rôti de porc aux pommes (Four)", prot: "porc", equip: "four", prep: "10 min", cook: "50 min", ingredients: [{name:"Rôti de porc (filet)",qty:"800g",aisle:"Boucherie / Poissonnerie"},{name:"Pommes fruits",qty:"4",aisle:"Légumes & Fruits"},{name:"Oignons rouges",qty:"2",aisle:"Légumes & Fruits"}], steps: ["Placer le rôti dans un plat. L'entourer de quartiers de pommes et d'oignons.","Ajouter un fond d'eau.","Cuire 50 min à 180°C."], gamelleTip: "Le sucré-salé avec la pomme cuite permet de se passer de sauce." },
+      { id: 27, title: "Lentilles aux allumettes de bacon", prot: "porc", equip: "thermomix", prep: "10 min", cook: "35 min", ingredients: [{name:"Allumettes de bacon",qty:"200g",aisle:"Boucherie / Poissonnerie"},{name:"Lentilles vertes",qty:"250g",aisle:"Épicerie & Féculents"},{name:"Carottes/Oignons",qty:"3",aisle:"Légumes & Fruits"},{name:"Bouillon",qty:"700ml",aisle:"Épicerie & Féculents"}], steps: ["Rissoler oignon et bacon 3 min / 120°C / Sens inverse.","Ajouter lentilles, carottes en dés, bouillon.","Cuire 30 min / 100°C / Sens inverse / vit 1."], gamelleTip: "Les allumettes de bacon remplacent les lardons pour -70% de lipides." },
+      { id: 28, title: "Sauté de porc aux brocolis", prot: "porc", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Filet de porc en cubes",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Brocolis",qty:"400g",aisle:"Légumes & Fruits"},{name:"Sauce soja",qty:"3 c.à.s",aisle:"Épicerie & Féculents"},{name:"Riz complet",qty:"150g",aisle:"Épicerie & Féculents"}], steps: ["Précuire les brocolis vapeur.","Saisir la viande maigre vif à la poêle.","Ajouter brocolis et soja. Servir avec riz."], gamelleTip: "Le filet de porc est aussi sain que la volaille. Un plat très rassasiant." },
+      { id: 29, title: "Omelette roulée aux épinards (Four)", prot: "porc", equip: "four", prep: "10 min", cook: "15 min", ingredients: [{name:"Œufs",qty:"6",aisle:"Produits Frais & Crémerie"},{name:"Allumettes de bacon",qty:"100g",aisle:"Boucherie / Poissonnerie"},{name:"Épinards hachés",qty:"200g",aisle:"Légumes & Fruits"}], steps: ["Préchauffer le four à 180°C.","Mélanger œufs, épinards, bacon cru.","Verser sur une plaque couverte de papier cuisson (couche fine). Cuire 10 min.","Rouler l'omelette et couper des tranches."], gamelleTip: "Visuel très sympa, riche en fer et sans huile." },
+      { id: 30, title: "Poêlée de grenailles & champignons au bacon", prot: "porc", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Pommes de terre grenailles",qty:"500g",aisle:"Légumes & Fruits"},{name:"Allumettes de bacon",qty:"150g",aisle:"Boucherie / Poissonnerie"},{name:"Champignons bruns",qty:"400g",aisle:"Légumes & Fruits"}], steps: ["Faire dorer le bacon à la poêle.","Ajouter les champignons pour qu'ils réduisent.","Ajouter les pommes de terre préalablement cuites à la vapeur."], gamelleTip: "L'eau des champignons suffit à lier le plat sans gras." },
+      { id: 31, title: "Spaghettis de courgette au bacon & œuf", prot: "porc", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Bacon en lanières",qty:"150g",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes (en spaghettis)",qty:"4",aisle:"Légumes & Fruits"},{name:"Œuf mollet",qty:"4",aisle:"Produits Frais & Crémerie"}], steps: ["Cuire les œufs mollets (6 min eau bouillante).","Faire sauter le bacon à sec, ajouter les courgettes 2 min.","Servir l'œuf mollet sur les spaghettis de courgette."], gamelleTip: "La version ultra-light de la carbonara. Mettez l'œuf à part et coupez-le au dernier moment." },
+      { id: 32, title: "Légumes d'hiver rôtis & Porc (Four)", prot: "porc", equip: "four", prep: "10 min", cook: "35 min", ingredients: [{name:"Filet de porc",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Butternut & Navets",qty:"1 bol",aisle:"Légumes & Fruits"},{name:"Thym",qty:"2 c.a.s",aisle:"Épicerie & Féculents"}], steps: ["Couper légumes et viande en cubes.","Disposer sur plaque, ajouter le thym et un pschitt d'huile.","Cuire 35 min à 190°C."], gamelleTip: "Les courges (butternut) sont très pauvres en calories." },
+      { id: 33, title: "Salade de quinoa au bacon & petits pois", prot: "porc", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Quinoa cuit",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Bacon grillé",qty:"150g",aisle:"Boucherie / Poissonnerie"},{name:"Petits pois",qty:"150g",aisle:"Légumes & Fruits"},{name:"Jus de citron",qty:"1",aisle:"Légumes & Fruits"}], steps: ["Griller le bacon à sec et le couper en miettes.","Mélanger le quinoa froid, les pois cuits, le bacon et le citron."], gamelleTip: "Excellent plat froid. Pas de vinaigrette huileuse, le citron suffit." },
+      { id: 34, title: "Dés de poulet & patate douce rôtie (Four)", prot: "poulet", equip: "four", prep: "10 min", cook: "25 min", ingredients: [{name:"Blancs de poulet",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Patates douces",qty:"3",aisle:"Légumes & Fruits"},{name:"Cumin",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Couper patate douce et poulet.","Mélanger avec 1 c.a.s d'eau, cumin.","Étaler sur plaque, cuire 25 min au four à 200°C."], gamelleTip: "La patate douce est riche en vitamine A et très rassasiante." },
+      { id: 35, title: "Cabillaud poché & fondue poireaux", prot: "poisson", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Cabillaud",qty:"4 pavés",aisle:"Boucherie / Poissonnerie"},{name:"Poireaux",qty:"4",aisle:"Légumes & Fruits"},{name:"Lait (pour pocher)",qty:"20cl",aisle:"Produits Frais & Crémerie"}], steps: ["Émincer finement les poireaux, cuire à la poêle à couvert avec un fond d'eau.","Pocher le poisson dans une petite casserole avec le lait chaud 5 min.","Servir le poisson sur les poireaux."], gamelleTip: "Pocher le poisson le rend d'un moelleux incroyable sans aucune matière grasse." },
+      { id: 36, title: "Saumon rôti au citron vert (Four)", prot: "poisson", equip: "four", prep: "5 min", cook: "15 min", ingredients: [{name:"Saumon",qty:"4 pavés",aisle:"Boucherie / Poissonnerie"},{name:"Citron vert (jus + zeste)",qty:"1",aisle:"Légumes & Fruits"},{name:"Riz basmati",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Déposer le saumon sur plaque, parsemer de zestes et jus de citron.","Cuire au four 15 min à 180°C.","Servir avec le riz cuit à l'eau."], gamelleTip: "Le saumon contient déjà de bons lipides, l'acidité du citron vert équilibre le tout." },
+      { id: 37, title: "Curry de crevettes aux épinards", prot: "poisson", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Crevettes décortiquées",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Lait coco light",qty:"150ml",aisle:"Épicerie & Féculents"},{name:"Épinards frais",qty:"300g",aisle:"Légumes & Fruits"},{name:"Curry en poudre",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Faire tomber les épinards à la poêle 2 min.","Ajouter crevettes et curry.","Verser lait coco light, frémir 3 min."], gamelleTip: "Les crevettes sont de pures protéines. Les épinards fondent dans la sauce." },
+      { id: 38, title: "Poisson blanc & Brocolis (Varoma Thermomix)", prot: "poisson", equip: "thermomix", prep: "5 min", cook: "20 min", ingredients: [{name:"Poisson blanc",qty:"4 filets",aisle:"Boucherie / Poissonnerie"},{name:"Brocolis",qty:"500g",aisle:"Légumes & Fruits"},{name:"Blé (Ebly)",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Mettre 800g d'eau dans le bol. Mettre le blé dans le panier cuisson.","Brocolis dans le Varoma, poisson sur le plateau vapeur (papier cuisson).","Cuire 20 min / Varoma / vit 1. Assaisonner jus de citron."], gamelleTip: "Menu vapeur par excellence, 0 matière grasse, tout cuit en même temps." },
+      { id: 39, title: "Salade complète Saumon fumé & Concombre", prot: "poisson", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Saumon fumé",qty:"150g",aisle:"Boucherie / Poissonnerie"},{name:"Pâtes complètes",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Concombre",qty:"1",aisle:"Légumes & Fruits"},{name:"Skyr nature",qty:"3 c.a.s",aisle:"Produits Frais & Crémerie"}], steps: ["Cuire les pâtes et les refroidir.","Couper concombre en dés.","Mélanger pâtes froides, concombre, saumon, lier avec le Skyr (sans huile)."], gamelleTip: "À consommer bien frais. Ultra protéiné." },
+      { id: 40, title: "Cabillaud écrasé de patate douce", prot: "poisson", equip: "plaques", prep: "15 min", cook: "15 min", ingredients: [{name:"Cabillaud",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Patate douce",qty:"600g",aisle:"Légumes & Fruits"},{name:"Ciboulette",qty:"1 botte",aisle:"Légumes & Fruits"}], steps: ["Cuire la patate douce vapeur, l'écraser grossièrement à la fourchette.","Pocher ou poêler à sec le poisson 5 min, l'effilocher.","Servir le poisson sur la purée avec la ciboulette."], gamelleTip: "Sans beurre ni crème, la patate douce se suffit à elle-même." },
+      { id: 41, title: "Risotto de quinoa aux crevettes (Thermomix)", prot: "poisson", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Quinoa",qty:"250g",aisle:"Épicerie & Féculents"},{name:"Crevettes décortiquées",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes en dés",qty:"2",aisle:"Légumes & Fruits"},{name:"Bouillon légumes",qty:"700ml",aisle:"Épicerie & Féculents"}], steps: ["Mettre le quinoa, le bouillon et les courgettes dans le bol.","Cuire 15 min / 100°C / Sens inverse / mijotage.","Ajouter crevettes par l'orifice les 5 dernières min."], gamelleTip: "Le quinoa remplace le riz rond pour un apport massif en protéines végétales." },
+      { id: 42, title: "Papillote de Saumon & Julienne (Four)", prot: "poisson", equip: "four", prep: "10 min", cook: "15 min", ingredients: [{name:"Saumon",qty:"4 pavés",aisle:"Boucherie / Poissonnerie"},{name:"Julienne de légumes",qty:"400g",aisle:"Légumes & Fruits"},{name:"Jus de Citron",qty:"1",aisle:"Légumes & Fruits"}], steps: ["Répartir julienne et saumon dans du papier cuisson (papillote).","Arroser de jus de citron, poivrer (pas d'huile).","Cuire au four 15 min à 200°C."], gamelleTip: "La cuisson à l'étouffée garantit un poisson juteux pour un repas léger." },
+      { id: 43, title: "Salade de riz au thon & tomates fraîches", prot: "poisson", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Thon au naturel",qty:"2 boîtes",aisle:"Épicerie & Féculents"},{name:"Tomates",qty:"3",aisle:"Légumes & Fruits"},{name:"Riz complet",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Vinaigrette légère",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Cuire le riz et le refroidir.","Couper les tomates en dés.","Mélanger avec le thon égoutté et un soupçon de vinaigrette."], gamelleTip: "Repas froid, parfait pour les journées pressées." },
+      { id: 44, title: "Palets de thon avoine (Four)", prot: "poisson", equip: "four", prep: "10 min", cook: "20 min", ingredients: [{name:"Thon au naturel",qty:"2 boîtes",aisle:"Épicerie & Féculents"},{name:"Flocons d'avoine",qty:"80g",aisle:"Épicerie & Féculents"},{name:"Œufs",qty:"2",aisle:"Produits Frais & Crémerie"},{name:"Salade verte",qty:"1 sachet",aisle:"Légumes & Fruits"}], steps: ["Mélanger thon émietté, avoine et œufs. Former des palets plats.","Disposer sur plaque cuisson, cuire 20 min au four à 200°C.","Manger avec la salade à côté."], gamelleTip: "Zéro farine, l'avoine lie parfaitement. Hyper protéiné." },
+      { id: 45, title: "Cake thon & légumes verts (Sans huile)", prot: "poisson", equip: "four", prep: "10 min", cook: "45 min", ingredients: [{name:"Thon au naturel",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Farine complète/Œufs",qty:"150g, 3",aisle:"Épicerie & Féculents"},{name:"Skyr nature",qty:"150g (1 pot)",aisle:"Produits Frais & Crémerie"},{name:"Petits pois",qty:"100g",aisle:"Légumes & Fruits"}], steps: ["Mélanger œufs, farine, levure, Skyr (remplace le beurre/l'huile).","Incorporer thon émietté et petits pois.","Cuire dans un moule à cake 45 min à 180°C."], gamelleTip: "On remplace l'huile classique par du Skyr : résultat bluffant et 0% gras." },
+      { id: 46, title: "Flan de poireaux au bacon (Four)", prot: "porc", equip: "four", prep: "10 min", cook: "35 min", ingredients: [{name:"Allumettes de bacon",qty:"100g",aisle:"Boucherie / Poissonnerie"},{name:"Poireaux émincés",qty:"3",aisle:"Légumes & Fruits"},{name:"Œufs & Lait écrémé",qty:"4, 20cl",aisle:"Produits Frais & Crémerie"}], steps: ["Poêler poireaux et bacon à sec jusqu'à réduction.","Fouetter œufs et lait.","Mélanger et verser dans un plat. Cuire 35 min à 180°C."], gamelleTip: "Sans pâte brisée, c'est un flan savoureux et très peu calorique." },
+      { id: 47, title: "Muffins aux légumes & jambon (Four)", prot: "porc", equip: "four", prep: "10 min", cook: "20 min", ingredients: [{name:"Dés jambon blanc",qty:"150g",aisle:"Boucherie / Poissonnerie"},{name:"Macédoine de légumes",qty:"1 boîte",aisle:"Légumes & Fruits"},{name:"Base cake au Skyr",qty:"1",aisle:"Épicerie & Féculents"}], steps: ["Préparer la base cake au Skyr (recette 45).","Mélanger avec macédoine égouttée et jambon.","Cuire dans moules à muffins 20 min à 180°C."], gamelleTip: "Super pour portionner vos repas avec une grosse salade verte." },
+      { id: 48, title: "Galettes de légumes râpés & jambon (Four)", prot: "porc", equip: "four", prep: "15 min", cook: "20 min", ingredients: [{name:"Carottes & Courgettes",qty:"400g râpé",aisle:"Légumes & Fruits"},{name:"Œufs/Avoine",qty:"2, 3 c.à.s",aisle:"Produits Frais & Crémerie"},{name:"Jambon haché",qty:"100g",aisle:"Boucherie / Poissonnerie"}], steps: ["Mélanger légumes râpés, œufs, avoine, jambon.","Étaler en petits cercles sur plaque de four.","Cuire 20 min à 200°C."], gamelleTip: "Faites-en plusieurs d'avance. Se mange même froid." },
+      { id: 49, title: "Tartine complète Poulet & Houmous (Four)", prot: "poulet", equip: "four", prep: "5 min", cook: "5 min", ingredients: [{name:"Pain complet",qty:"4 tranches",aisle:"Épicerie & Féculents"},{name:"Blanc poulet en tranches",qty:"150g",aisle:"Boucherie / Poissonnerie"},{name:"Houmous",qty:"4 c.a.s",aisle:"Produits Frais & Crémerie"}], steps: ["Toaster le pain au four 5 min.","Laisser tiédir, tartiner de houmous (bons lipides végétaux).","Poser le poulet par-dessus."], gamelleTip: "Idéal avec des crudités à part." },
+      { id: 50, title: "Omelette plate au bœuf 5% (Poêle)", prot: "boeuf", equip: "plaques", prep: "10 min", cook: "8 min", ingredients: [{name:"Œufs",qty:"4",aisle:"Produits Frais & Crémerie"},{name:"Bœuf haché 5% cuit",qty:"200g",aisle:"Boucherie / Poissonnerie"},{name:"Tomates en dés",qty:"2",aisle:"Légumes & Fruits"}], steps: ["Battre les œufs.","Verser dans la poêle chaude, parsemer immédiatement de bœuf et tomates.","Cuire à plat (façon tortilla) sans retourner."], gamelleTip: "Hyper-protéiné (Œuf + Bœuf maigre)." },
+      { id: 51, title: "Blanc de poulet farci aux épinards (Four)", prot: "poulet", equip: "four", prep: "15 min", cook: "20 min", ingredients: [{name:"Blancs de poulet épais",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Épinards hachés",qty:"100g",aisle:"Légumes & Fruits"},{name:"Ricotta",qty:"2 c.a.s",aisle:"Produits Frais & Crémerie"}], steps: ["Inciser les blancs en portefeuille.","Mélanger épinards et ricotta, farcir le poulet.","Refermer (avec un cure-dent), cuire au four 20 min à 190°C."], gamelleTip: "Le poulet reste très tendre grâce à l'humidité de la ricotta à l'intérieur." },
+      { id: 52, title: "Cuisses de poulet moutarde & tomates (Four)", prot: "poulet", equip: "four", prep: "5 min", cook: "40 min", ingredients: [{name:"Cuisses poulet (sans peau)",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Moutarde",qty:"3 c.à.s",aisle:"Épicerie & Féculents"},{name:"Tomates coupées",qty:"4",aisle:"Légumes & Fruits"}], steps: ["Retirer la peau des cuisses. Badigeonner de moutarde.","Disposer dans le plat avec les tomates autour.","Cuire au four 40 min à 190°C."], gamelleTip: "La tomate va fondre et créer une sauce courte divine avec la moutarde." },
+      { id: 53, title: "Sauté de dinde paprika & haricots", prot: "poulet", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Blancs dinde dés",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Paprika fumé",qty:"1 c.à.s",aisle:"Légumes & Fruits"},{name:"Haricots rouges boîte",qty:"400g",aisle:"Épicerie & Féculents"}], steps: ["Masser dinde avec paprika et 1 c.a.s d'eau.","Saisir à la poêle.","Ajouter haricots rincés. Mijoter 5 min."], gamelleTip: "Viande blanche + légumineuses = satiété absolue." },
+      { id: 54, title: "Boulettes bœuf 5% & julienne (Four)", prot: "boeuf", equip: "four", prep: "10 min", cook: "20 min", ingredients: [{name:"Boulettes bœuf 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Julienne de légumes",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Étaler julienne sur plaque cuisson.","Poser boulettes au-dessus.","Cuire 20 min 190°C."], gamelleTip: "Zéro graisse ajoutée, le jus de bœuf maigre parfume la julienne." },
+      { id: 55, title: "Poulet & lentilles au curcuma (Thermomix)", prot: "poulet", equip: "thermomix", prep: "5 min", cook: "30 min", ingredients: [{name:"Blancs poulet",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Lentilles corail",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Curcuma & Bouillon",qty:"1 c.a.s, 600ml",aisle:"Épicerie & Féculents"}], steps: ["Lentilles, bouillon, curcuma dans le bol.","Cuire 15 min / 100°C / Sens inverse.","Ajouter poulet en dés, cuire encore 15 min."], gamelleTip: "Plat réconfortant type 'Dahl', très sain." },
+      { id: 56, title: "Poulet émincé aux poivrons (Fajitas bowl)", prot: "poulet", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Poulet émincé",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Poivrons en lamelles",qty:"3",aisle:"Légumes & Fruits"},{name:"Épices douces (cumin/paprika)",qty:"1 c.a.s",aisle:"Épicerie & Féculents"},{name:"Riz complet",qty:"150g",aisle:"Épicerie & Féculents"}], steps: ["Sauter poulet et poivrons à la poêle avec épices.","Servir dans le plat sur un lit de riz complet."], gamelleTip: "Le goût des fajitas, sans la galette lourde et le fromage." },
+      { id: 57, title: "Bœuf émincé & poêlée de légumes d'hiver", prot: "boeuf", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Tende de tranche bœuf",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Mélange navets/carottes",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Cuire légumes à la vapeur au préalable.","Saisir viande très brièvement (1 min).","Mélanger avec légumes chauds."], gamelleTip: "Le bœuf doit rester saignant." },
+      { id: 58, title: "Aubergines rôties au bœuf (Four)", prot: "boeuf", equip: "four", prep: "10 min", cook: "35 min", ingredients: [{name:"Aubergines",qty:"2",aisle:"Légumes & Fruits"},{name:"Bœuf haché 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Pulpe tomate",qty:"100g",aisle:"Épicerie & Féculents"}], steps: ["Couper aubergines en deux, quadriller la chair. Cuire four 20 min.","Creuser, mélanger chair avec bœuf et tomate.","Farcir les moitiés, recuire 15 min."], gamelleTip: "L'aubergine cuite au four n'absorbe aucune huile." },
+      { id: 59, title: "Wok de porc aux germes de soja", prot: "porc", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Porc maigre émincé",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Germes de soja",qty:"300g",aisle:"Légumes & Fruits"},{name:"Sauce soja",qty:"2 c.a.s",aisle:"Épicerie & Féculents"}], steps: ["Sauter la viande très vivement.","Ajouter les germes de soja juste pour les réchauffer (2 min).","Déglacer."], gamelleTip: "Le germe de soja apporte volume d'eau et légèreté au repas." },
+      { id: 60, title: "Bœuf haché aux pois chiches", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Bœuf haché 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Pois chiches boîte",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Cumin",qty:"1 c.à.t",aisle:"Épicerie & Féculents"}], steps: ["Faire dorer le bœuf avec le cumin.","Ajouter pois chiches rincés.","Chauffer le tout 5 min."], gamelleTip: "Super consistant. Vous n'aurez plus faim jusqu'au soir." },
+      { id: 61, title: "Poulet & courge butternut (Four)", prot: "poulet", equip: "four", prep: "10 min", cook: "35 min", ingredients: [{name:"Poulet dés",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Butternut cubes",qty:"600g",aisle:"Légumes & Fruits"}], steps: ["Plaque four. Butternut + Poulet.","Assaisonner thym. Cuire 35 min 190°C."], gamelleTip: "La butternut est sucrée mais très pauvre en calories." },
+      { id: 62, title: "Cabillaud, riz & tomates cerises (Four)", prot: "poisson", equip: "four", prep: "5 min", cook: "15 min", ingredients: [{name:"Cabillaud",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Tomates cerises",qty:"200g",aisle:"Légumes & Fruits"},{name:"Riz cuit",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Poisson et tomates sur papier cuisson au four (15 min).","Mélanger avec riz."], gamelleTip: "Tomates confites naturelles." },
+      { id: 63, title: "Truite vapeur & Asperges (Thermomix)", prot: "poisson", equip: "thermomix", prep: "5 min", cook: "15 min", ingredients: [{name:"Truite",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Asperges vertes",qty:"1 botte",aisle:"Légumes & Fruits"}], steps: ["Plateau Varoma. 800g eau bol.","Cuire 15 min Varoma."], gamelleTip: "Protéines pures et légumes verts = dîner parfait." },
+      { id: 64, title: "Dahl de poisson blanc (Thermomix)", prot: "poisson", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Poisson blanc cubes",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Lentilles corail",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Lait coco light",qty:"100ml",aisle:"Épicerie & Féculents"}], steps: ["Cuire lentilles eau 15 min / 100°C.","Ajouter poisson et coco, cuire 5 min."], gamelleTip: "Le poisson fond dans les lentilles, texture incroyable." },
+      { id: 65, title: "Tomates farcies au thon (Froid)", prot: "poisson", equip: "plaques", prep: "15 min", cook: "0 min", ingredients: [{name:"Grosses tomates",qty:"4",aisle:"Légumes & Fruits"},{name:"Thon naturel",qty:"2 boîtes",aisle:"Épicerie & Féculents"},{name:"Fromage blanc 0%",qty:"3 c.a.s",aisle:"Produits Frais & Crémerie"}], steps: ["Évider tomates.","Mélanger thon, fromage blanc, ciboulette.","Farcir. Manger froid."], gamelleTip: "Zéro cuisson, hyper light." },
+      { id: 66, title: "Salade de patates & poulet allégée", prot: "poulet", equip: "plaques", prep: "15 min", cook: "10 min", ingredients: [{name:"Pommes de terre",qty:"500g",aisle:"Légumes & Fruits"},{name:"Dés de poulet rôti",qty:"200g",aisle:"Boucherie / Poissonnerie"},{name:"Oeufs durs",qty:"2",aisle:"Produits Frais & Crémerie"},{name:"Skyr & Moutarde (sauce)",qty:"3 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Cuire les patates et oeufs.","Couper en dés.","Mélanger poulet, et la fausse mayo (Skyr + moutarde)."], gamelleTip: "Remplacer la mayo par Skyr+Moutarde allège considérablement la sauce." },
+      { id: 67, title: "Salade de lentilles au thon & tomates", prot: "poisson", equip: "plaques", prep: "5 min", cook: "0 min", ingredients: [{name:"Lentilles cuites boîte",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Thon nature",qty:"2 boîtes",aisle:"Épicerie & Féculents"},{name:"Tomates",qty:"3 pièces",aisle:"Légumes & Fruits"},{name:"Vinaigrette légère citron",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Rincer lentilles.","Couper tomates.","Mélanger le tout avec thon émietté."], gamelleTip: "Assemblage en 3 minutes, parfait pour un repas froid et complet." },
+      { id: 68, title: "Soupe repas asiatique crevettes", prot: "poisson", equip: "plaques", prep: "10 min", cook: "5 min", ingredients: [{name:"Crevettes décortiquées",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Nouilles sarrasin",qty:"100g",aisle:"Épicerie & Féculents"},{name:"Bouillon de légumes",qty:"1L",aisle:"Épicerie & Féculents"},{name:"Bok Choy",qty:"2",aisle:"Légumes & Fruits"}], steps: ["Faire chauffer le bouillon avec bok choy 3 min.","Ajouter les nouilles et les crevettes, cuire 2 min.","Servir."], gamelleTip: "Soupe brûle-graisse, remplissez-vous l'estomac sainement." },
+      { id: 69, title: "Porc & haricots verts sauce moutarde", prot: "porc", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Filet porc lamelles",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Haricots verts cuits",qty:"400g",aisle:"Légumes & Fruits"},{name:"Skyr + Moutarde",qty:"2 c.a.s",aisle:"Produits Frais & Crémerie"}], steps: ["Sauter porc vif.","Baisser feu, ajouter haricots.","Lier avec Skyr-moutarde."], gamelleTip: "Sauce crémeuse très pauvre en graisses." },
+      { id: 70, title: "Poulet au curry & quinoa", prot: "poulet", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Poulet émincé",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Quinoa cuit",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Lait de coco light",qty:"10cl",aisle:"Épicerie & Féculents"},{name:"Curry",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Poêler poulet et curry.","Verser lait coco light, mijoter 3 min.","Servir sur quinoa."], gamelleTip: "Le quinoa pompe la sauce, excellent !" },
+      { id: 71, title: "Légumes rôtis & Boulettes de bœuf (Four)", prot: "boeuf", equip: "four", prep: "10 min", cook: "25 min", ingredients: [{name:"Mélange légumes hiver",qty:"600g",aisle:"Légumes & Fruits"},{name:"Boulettes de bœuf 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"}], steps: ["Cuire légumes et boulettes ensemble au four 25 min à 200°C sur papier cuisson."], gamelleTip: "Repas sec très sain, on évite les sauces industrielles." },
+      { id: 72, title: "Bœuf 5% & Patate douce vapeur (Thermomix)", prot: "boeuf", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Patates douces",qty:"400g",aisle:"Légumes & Fruits"},{name:"Bœuf haché 5%",qty:"300g",aisle:"Boucherie / Poissonnerie"}], steps: ["Patates douces en cubes Varoma.","Viande plateau vapeur.","Cuire 20 min Varoma. Écraser ensemble."], gamelleTip: "Purée mixte improvisée hyper saine." },
+      { id: 73, title: "Pâtes complètes Aubergine & Bacon", prot: "porc", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Pâtes complètes",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Aubergine",qty:"1 pièce",aisle:"Légumes & Fruits"},{name:"Allumettes bacon",qty:"100g",aisle:"Boucherie / Poissonnerie"},{name:"Pulpe tomate",qty:"20cl",aisle:"Produits Frais & Crémerie"}], steps: ["Cuire les pâtes.","Faire sauter l'aubergine en dés dans jus tomate (sans huile).","Mélanger avec pâtes, tomate et bacon."], gamelleTip: "L'aubergine fond dans la tomate sans absorber d'huile !" },
+      { id: 74, title: "Escalopes dinde vapeur (Thermomix)", prot: "poulet", equip: "thermomix", prep: "5 min", cook: "20 min", ingredients: [{name:"Escalopes de dinde",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Carottes/Poireaux",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Légumes Varoma, Viande plateau.","Cuire 20 min Varoma. Assaisonner sel herbes."], gamelleTip: "Le summum du repas digeste." },
+      { id: 75, title: "Poulet & chou chinois sauté", prot: "poulet", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Chou chinois",qty:"1/2",aisle:"Légumes & Fruits"},{name:"Poulet émincé",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Sauce soja",qty:"3 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Sauter poulet vif.","Ajouter chou émincé 3 min.","Sauter soja 1 minute."], gamelleTip: "Le chou chinois cuit extrêmement vite et reste volumineux." },
+      { id: 76, title: "Salade lentilles, bœuf froid & moutarde", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "5 min", ingredients: [{name:"Bœuf 5% (restes cuits)",qty:"200g",aisle:"Boucherie / Poissonnerie"},{name:"Lentilles cuites",qty:"300g",aisle:"Épicerie & Féculents"},{name:"Moutarde à l'ancienne",qty:"1 c.a.s",aisle:"Épicerie & Féculents"}], steps: ["Mélanger lentilles froides, bœuf émietté.","Lier avec moutarde et jus citron."], gamelleTip: "Zéro cuisson requise, super sain." },
+      { id: 77, title: "Galette sarrasin Poulet épinards (Poêle)", prot: "poulet", equip: "plaques", prep: "5 min", cook: "5 min", ingredients: [{name:"Galettes sarrasin",qty:"4",aisle:"Produits Frais & Crémerie"},{name:"Poulet cuit",qty:"200g",aisle:"Boucherie / Poissonnerie"},{name:"Épinards frais",qty:"1 poignée",aisle:"Légumes & Fruits"}], steps: ["Galette dans la poêle.","Ajouter poulet et épinards crus (vont flétrir).","Fermer. Chauffer 2 min."], gamelleTip: "Le sarrasin a un super IG. Très digeste." },
+      { id: 78, title: "Brochettes volaille nature (Four)", prot: "poulet", equip: "four", prep: "10 min", cook: "15 min", ingredients: [{name:"Blancs de poulet",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes en rondelles",qty:"2",aisle:"Légumes & Fruits"},{name:"Riz/Légumes",qty:"200g",aisle:"Légumes & Fruits"}], steps: ["Alterner poulet/courgette sur pic.","Four 15 min 200°C."], gamelleTip: "Protéines pures." },
+      { id: 79, title: "Courgettes farcies porc maigre (Four)", prot: "porc", equip: "four", prep: "10 min", cook: "40 min", ingredients: [{name:"Courgettes rondes",qty:"4 pièces",aisle:"Légumes & Fruits"},{name:"Filet porc haché",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Riz cuit",qty:"100g",aisle:"Épicerie & Féculents"}], steps: ["Creuser courgettes et hacher chair.","Mélanger avec viande et riz, assaisonner.","Farcir courgettes et cuire 40 min au four à 180°C."], gamelleTip: "Le filet haché est bien moins gras que la chair à saucisse." },
+      { id: 80, title: "Blanquette de dinde light (Thermomix)", prot: "poulet", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Blancs de dinde",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Carottes",qty:"3",aisle:"Légumes & Fruits"},{name:"Skyr",qty:"100g",aisle:"Produits Frais & Crémerie"},{name:"Jus de citron",qty:"1 c.à.s",aisle:"Légumes & Fruits"}], steps: ["Mettre carottes, dinde et eau dans le bol.","Cuire 15 min / 100°C / Sens inverse / mijotage.","Lier sauce avec Skyr et citron hors du bol."], gamelleTip: "Volailles blanches + Skyr = repas 100% muscu/diet." },
+      { id: 81, title: "Bœuf 5% sauce tomate nature (Plaques)", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Pâtes complètes",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Bœuf haché 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Sauce tomate",qty:"400g",aisle:"Épicerie & Féculents"}], steps: ["Cuire pâtes.","Sauter le bœuf sec, ajouter sauce tomate.","Mélanger sans fromage."], gamelleTip: "Une bolognaise clean, zéro fromage râpé." },
+      { id: 82, title: "Dinde champignons sauce soja", prot: "poulet", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Blancs dinde",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Champignons frais",qty:"400g",aisle:"Légumes & Fruits"},{name:"Sauce soja",qty:"2 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Dorer dinde poêle.","Ajouter champignons émincés.","Déglacer soja. C'est tout."], gamelleTip: "Zéro crème, très léger." },
+      { id: 83, title: "Lasagnes Aubergines & Thon (Four)", prot: "poisson", equip: "four", prep: "15 min", cook: "30 min", ingredients: [{name:"Aubergines (en tranches)",qty:"2",aisle:"Légumes & Fruits"},{name:"Thon naturel",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Sauce Tomate",qty:"1 pot",aisle:"Épicerie & Féculents"}], steps: ["Mélanger thon émietté et tomate.","Dans plat, alterner tranches aubergines crues et sauce thon.","Cuire 30 min 180°C."], gamelleTip: "On remplace les pâtes par l'aubergine, zéro glucides." },
+      { id: 84, title: "Wraps de laitue & poulet", prot: "poulet", equip: "plaques", prep: "10 min", cook: "5 min", ingredients: [{name:"Grandes feuilles laitue",qty:"8",aisle:"Légumes & Fruits"},{name:"Poulet émincé cuit",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Tomates en dés",qty:"200g",aisle:"Légumes & Fruits"}], steps: ["Mettre poulet tomate dans feuille de salade.","Rouler comme un wrap."], gamelleTip: "Froid, très hydratant, super l'été." },
+      { id: 85, title: "Poisson blanc & écrasé chou-fleur (Thermomix)", prot: "poisson", equip: "thermomix", prep: "10 min", cook: "20 min", ingredients: [{name:"Filets poisson blanc",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Chou-fleur",qty:"1 tête",aisle:"Légumes & Fruits"}], steps: ["Chou-fleur bol, poisson plateau.","Cuire 20 min Varoma.","Écraser chou-fleur sel/poivre."], gamelleTip: "Purée ultra low-carb." },
+      { id: 86, title: "Bacon & lentilles cuites (Froid)", prot: "porc", equip: "plaques", prep: "5 min", cook: "5 min", ingredients: [{name:"Lentilles boîte",qty:"400g",aisle:"Épicerie & Féculents"},{name:"Bacon allumettes",qty:"100g",aisle:"Boucherie / Poissonnerie"}], steps: ["Griller bacon.","Mélanger avec lentilles rincées. Froid."], gamelleTip: "Rapide, protéines/fer." },
+      { id: 87, title: "Gnocchis poêlés & purée tomate", prot: "porc", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Gnocchis",qty:"400g",aisle:"Produits Frais & Crémerie"},{name:"Pulpe tomate",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Dorer gnocchis poêle.","Ajouter pulpe tomate sans gras."], gamelleTip: "Gnocchis natures." },
+      { id: 88, title: "Dinde & haricots verts vapeur", prot: "poulet", equip: "thermomix", prep: "5 min", cook: "20 min", ingredients: [{name:"Dinde",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Haricots verts",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Haricots Varoma, Dinde plateau.","Cuire 20 min Varoma."], gamelleTip: "Diète pure." },
+      { id: 89, title: "Poulet Tikka light au yaourt", prot: "poulet", equip: "plaques", prep: "10 min", cook: "15 min", ingredients: [{name:"Blancs poulet",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Yaourt nature",qty:"1",aisle:"Produits Frais & Crémerie"},{name:"Épices Tikka",qty:"1 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Dorer poulet et épices.","Hors feu, incorporer yaourt."], gamelleTip: "Yaourt = onctuosité sans gras." },
+      { id: 90, title: "Salade Quinoa Poulet Citron", prot: "poulet", equip: "plaques", prep: "10 min", cook: "10 min", ingredients: [{name:"Quinoa cuit",qty:"250g",aisle:"Épicerie & Féculents"},{name:"Poulet rôti émietté",qty:"200g",aisle:"Boucherie / Poissonnerie"},{name:"Jus citron",qty:"1",aisle:"Légumes & Fruits"}], steps: ["Mélanger tout froid."], gamelleTip: "Parfait l'été." },
+      { id: 91, title: "Porc & chou blanc (Thermomix)", prot: "porc", equip: "thermomix", prep: "10 min", cook: "25 min", ingredients: [{name:"Filet de porc",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Chou blanc lanières",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Chou et viande dans bol, fond eau.","Cuire 25 min 100°C Sens Inverse."], gamelleTip: "Chou = fibres ++." },
+      { id: 92, title: "Steak 5% & épinards (Plaques)", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Steaks 5%",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Épinards frais",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Cuire steaks.","Faire tomber épinards même poêle."], gamelleTip: "Fer et protéines." },
+      { id: 93, title: "Bœuf & Champignons express", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Bœuf émincé",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Champignons bruns",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Poêler champignons jusq'à réduction d'eau.","Saisir bœuf 2 min."], gamelleTip: "L'eau du champignon suffit." },
+      { id: 94, title: "Mijoté Bœuf Carotte (Thermomix)", prot: "boeuf", equip: "thermomix", prep: "10 min", cook: "45 min", ingredients: [{name:"Bœuf maigre",qty:"500g",aisle:"Boucherie / Poissonnerie"},{name:"Carottes",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Viande, légumes, eau dans bol.","Cuire 45 min / 100°C / Sens inverse."], gamelleTip: "Zéro huile." },
+      { id: 95, title: "Saumon & Brocolis (Thermomix Varoma)", prot: "poisson", equip: "thermomix", prep: "5 min", cook: "20 min", ingredients: [{name:"Saumon pavés",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Brocolis",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Brocolis Varoma, saumon plateau.","Cuire 20 min / Varoma."], gamelleTip: "Vapeur." },
+      { id: 96, title: "Tartare thon avocat sésame", prot: "poisson", equip: "plaques", prep: "10 min", cook: "0 min", ingredients: [{name:"Thon frais",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Avocat",qty:"1",aisle:"Légumes & Fruits"},{name:"Soja",qty:"2 c.à.s",aisle:"Épicerie & Féculents"}], steps: ["Dés thon avocat. Soja.","Froid."], gamelleTip: "Protéines/Oméga 3." },
+      { id: 97, title: "Poulet & courgettes (Four)", prot: "poulet", equip: "four", prep: "10 min", cook: "30 min", ingredients: [{name:"Blancs poulet",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Courgettes rondelles",qty:"4",aisle:"Légumes & Fruits"}], steps: ["Plaque four. Cuire 30 min 200°C."], gamelleTip: "Courgette = eau." },
+      { id: 98, title: "Cabillaud poché lait de soja", prot: "poisson", equip: "plaques", prep: "5 min", cook: "10 min", ingredients: [{name:"Cabillaud",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Lait de soja nature",qty:"30cl",aisle:"Épicerie & Féculents"}], steps: ["Chauffer lait poêle. Pocher poisson 8 min."], gamelleTip: "Hyper tendre." },
+      { id: 99, title: "Rôti de porc nature (Four)", prot: "porc", equip: "four", prep: "5 min", cook: "50 min", ingredients: [{name:"Rôti porc (filet)",qty:"800g",aisle:"Boucherie / Poissonnerie"},{name:"Eau fond plat",qty:"20cl",aisle:"Épicerie & Féculents"}], steps: ["Rôti plat eau. Cuire 50 min 180°C."], gamelleTip: "Couper froid." },
+      { id: 100, title: "Pâtes Bœuf 5% basilic", prot: "boeuf", equip: "plaques", prep: "5 min", cook: "12 min", ingredients: [{name:"Pâtes complètes",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Bœuf 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"}], steps: ["Cuire pâtes.","Mélanger bœuf poêlé. Basilic."], gamelleTip: "Simplicité." },
+      { id: 101, title: "Cabillaud citron (Four)", prot: "poisson", equip: "four", prep: "5 min", cook: "15 min", ingredients: [{name:"Dos cabillaud",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Jus citron",qty:"1",aisle:"Légumes & Fruits"}], steps: ["Poisson plaque, citron. Cuire 15 min 200°C."], gamelleTip: "Diet." },
+      { id: 102, title: "Boulettes bœuf 5% & Haricots", prot: "boeuf", equip: "four", prep: "10 min", cook: "20 min", ingredients: [{name:"Bœuf 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Haricots verts",qty:"500g",aisle:"Légumes & Fruits"}], steps: ["Boulettes four 15 min. Haricots vapeur."], gamelleTip: "Protéines/Légumes." },
+      { id: 103, title: "Blancs poulet moutarde (Four)", prot: "poulet", equip: "four", prep: "5 min", cook: "20 min", ingredients: [{name:"Blancs",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Moutarde",qty:"2 c.a.s",aisle:"Épicerie & Féculents"}], steps: ["Tartiner moutarde. Four 20 min 190°C."], gamelleTip: "Goût sans calories." },
+      { id: 104, title: "Chou-fleur vapeur & bacon (Thermomix)", prot: "porc", equip: "thermomix", prep: "5 min", cook: "20 min", ingredients: [{name:"Chou-fleur",qty:"1",aisle:"Légumes & Fruits"},{name:"Bacon",qty:"100g",aisle:"Boucherie / Poissonnerie"}], steps: ["Varoma chou fleur.","Ajouter bacon grillé dessus après."], gamelleTip: "Volume." },
+      { id: 105, title: "Saumon asperges (Four)", prot: "poisson", equip: "four", prep: "5 min", cook: "15 min", ingredients: [{name:"Pavés saumon",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Asperges",qty:"1 botte",aisle:"Légumes & Fruits"}], steps: ["Plaque four saumon et asperges. Cuire 15 min 180°C."], gamelleTip: "Detox." },
+      { id: 106, title: "Viande hachée 5% & purée carotte", prot: "boeuf", equip: "plaques", prep: "15 min", cook: "15 min", ingredients: [{name:"Bœuf 5%",qty:"400g",aisle:"Boucherie / Poissonnerie"},{name:"Purée carotte",qty:"600g",aisle:"Légumes & Fruits"}], steps: ["Cuire viande oignons. Plat avec purée sans beurre."], gamelleTip: "Léger." },
+      { id: 107, title: "Lentilles Saucisses de Volaille", prot: "porc", equip: "thermomix", prep: "10 min", cook: "35 min", ingredients: [{name:"Saucisses volaille maigre",qty:"4",aisle:"Boucherie / Poissonnerie"},{name:"Lentilles",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Lentilles, saucisses rondelles, bouillon bol.","Cuire 35 min / 100°C / Sens inverse."], gamelleTip: "Saucisse volaille = peu de gras." },
+      { id: 108, title: "Curry pois chiches poulet (Thermomix)", prot: "poulet", equip: "thermomix", prep: "5 min", cook: "20 min", ingredients: [{name:"Pois chiches",qty:"300g",aisle:"Épicerie & Féculents"},{name:"Poulet dés",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Tomate pulpe",qty:"200g",aisle:"Épicerie & Féculents"}], steps: ["Poulet 5 min 120°C.","Pois chiches, tomate 15 min 100°C."], gamelleTip: "Rassasiant." },
+      { id: 109, title: "Riz Cantonais vapeur (Thermomix)", prot: "porc", equip: "thermomix", prep: "5 min", cook: "25 min", ingredients: [{name:"Riz",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Jambon dés",qty:"150g",aisle:"Boucherie / Poissonnerie"}], steps: ["Riz panier cuisson 20 min / Varoma.","Mélanger jambon."], gamelleTip: "Vapeur." },
+      { id: 110, title: "One Pot Poulet Tomate (Thermomix)", prot: "poulet", equip: "thermomix", prep: "5 min", cook: "15 min", ingredients: [{name:"Pâtes complètes",qty:"200g",aisle:"Épicerie & Féculents"},{name:"Poulet",qty:"300g",aisle:"Boucherie / Poissonnerie"},{name:"Pulpe tomate/Eau",qty:"300g, 300g",aisle:"Épicerie & Féculents"}], steps: ["Tout bol.","Cuire 15 min 100°C Sens inverse mijotage."], gamelleTip: "Sain." },
+      { id: 111, title: "Velouté Courge poulet (Thermomix)", prot: "poulet", equip: "thermomix", prep: "10 min", cook: "25 min", ingredients: [{name:"Butternut",qty:"500g",aisle:"Légumes & Fruits"},{name:"Poulet rôti restes",qty:"150g",aisle:"Boucherie / Poissonnerie"}], steps: ["Cuire butternut bouillon 25 min 100°C. Mixer.","Servir poulet dessus."], gamelleTip: "Soupe complète." }
+    ];
+
+    let recipesData = [...baseRecipesData];
+    let selectedRecipeIds = [];
+    let shoppingCheckedState = {};
+    let customShoppingItems = [];
+    let favoriteRecipeIds = [];
+
+    let currentProtFilter = 'all';
+    let currentEquipFilter = 'all';
+    let showFavoritesOnly = false;
+    let currentModalRecipeId = null;
+    let editingRecipeId = null;
+
+    // --- FIREBASE SYNC ---
+    onAuthStateChanged(auth, (user) => {
+      const loginScreen = document.getElementById('login-screen');
+      const bodyContainer = document.getElementById('body-container');
+      if (user) {
+        loginScreen.style.opacity = '0';
+        setTimeout(() => {
+          loginScreen.style.display = 'none';
+          bodyContainer.classList.remove('overflow-hidden');
+        }, 500);
+        initCloudSync();
+      } else {
+        loginScreen.style.display = 'flex';
+        loginScreen.style.opacity = '1';
+        bodyContainer.classList.add('overflow-hidden');
+      }
+    });
+
+    window.handleLogin = async () => {
+      const email = document.getElementById('email-input').value.trim();
+      const pwd = document.getElementById('pwd-input').value.trim();
+      const btn = document.getElementById('btn-login');
+      const errorText = document.getElementById('login-error');
+      
+      if(!email || !pwd) return;
+      btn.innerHTML = `<span class="animate-pulse">Connexion...</span>`;
+      errorText.style.opacity = '0';
+
+      try {
+        await signInWithEmailAndPassword(auth, email, pwd);
+      } catch (error) {
+        errorText.style.opacity = '1';
+        btn.innerHTML = `Se connecter`;
+      }
+    };
+
+    window.handleLogout = () => signOut(auth);
+
+    function initCloudSync() {
+      const docRef = doc(db, "sharedData", "gamelles_state");
+      onSnapshot(docRef, async (docSnap) => {
+        if (!docSnap.exists()) {
+          await setDoc(docRef, {
+            selectedRecipeIds: [],
+            shoppingCheckedState: {},
+            customShoppingItems: [],
+            favoriteRecipeIds: [],
+            customRecipes: []
+          });
+        } else {
+          const data = docSnap.data();
+          selectedRecipeIds = data.selectedRecipeIds || [];
+          shoppingCheckedState = data.shoppingCheckedState || {};
+          customShoppingItems = data.customShoppingItems || [];
+          favoriteRecipeIds = data.favoriteRecipeIds || [];
+          
+          const customRecs = data.customRecipes || [];
+          
+          let merged = [...baseRecipesData];
+          customRecs.forEach(c => {
+            const idx = merged.findIndex(r => r.id === c.id);
+            if(idx > -1) merged[idx] = c; 
+            else merged.push(c); 
+          });
+          
+          recipesData = merged;
+          updateAllViews();
+        }
+      });
+    }
+
+    async function saveCloudState() {
+      const docRef = doc(db, "sharedData", "gamelles_state");
+      const customRecs = recipesData.filter(r => r.id > 111 || r.isModified);
+      try {
+        await updateDoc(docRef, {
+          selectedRecipeIds,
+          shoppingCheckedState,
+          customShoppingItems,
+          favoriteRecipeIds,
+          customRecipes: customRecs
+        });
+      } catch(e) {
+        console.error("Erreur sauvegarde cloud:", e);
+      }
+    }
+
+    // --- UI HELPERS ---
+    function getEquipBadge(equip) {
+      switch(equip) {
+        case 'four': return '<span class="bg-red-100 text-red-800 text-[11px] font-bold px-2 py-0.5 rounded-md">🔥 Four</span>';
+        case 'thermomix': return '<span class="bg-emerald-100 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-md">🤖 Thermomix</span>';
+        case 'plaques': return '<span class="bg-blue-100 text-blue-800 text-[11px] font-bold px-2 py-0.5 rounded-md">🍳 Poêle/Plaques</span>';
+        default: return '<span class="bg-stone-100 text-stone-800 text-[11px] font-bold px-2 py-0.5 rounded-md">🍳 Poêle/Plaques</span>';
+      }
+    }
+
+    function getProtBadge(prot) {
+      switch(prot) {
+        case 'poulet': return '<span class="bg-yellow-50 text-yellow-800 border border-yellow-200 text-[11px] font-bold px-2 py-0.5 rounded-md">🐔 Volaille</span>';
+        case 'boeuf': return '<span class="bg-red-50 text-red-800 border border-red-200 text-[11px] font-bold px-2 py-0.5 rounded-md">🥩 Bœuf/Veau</span>';
+        case 'porc': return '<span class="bg-pink-50 text-pink-800 border border-pink-200 text-[11px] font-bold px-2 py-0.5 rounded-md">🥓 Bacon/Porc</span>';
+        default: return '<span class="bg-cyan-50 text-cyan-800 border border-cyan-200 text-[11px] font-bold px-2 py-0.5 rounded-md">🐟 Poisson</span>';
+      }
+    }
+
+    function renderRecipes() {
+      const grid = document.getElementById('recipeGrid');
+      grid.innerHTML = '';
+      const query = document.getElementById('searchInput').value.toLowerCase().trim();
+
+      const filtered = recipesData.filter(r => {
+        const matchesProt = (currentProtFilter === 'all') || (r.prot === currentProtFilter);
+        const matchesEquip = (currentEquipFilter === 'all') || (r.equip === currentEquipFilter);
+        const matchesSearch = !query || r.title.toLowerCase().includes(query) || r.ingredients.some(i => i.name.toLowerCase().includes(query));
+        const matchesFav = showFavoritesOnly ? favoriteRecipeIds.includes(r.id) : true;
+        return matchesProt && matchesEquip && matchesSearch && matchesFav;
+      });
+
+      document.getElementById('recipesResultCount').innerText = `Affichage de ${filtered.length} / ${recipesData.length} recettes`;
+
+      filtered.forEach(recipe => {
+        const isSelected = selectedRecipeIds.includes(recipe.id);
+        const isFav = favoriteRecipeIds.includes(recipe.id);
+        
+        const card = document.createElement('div');
+        card.className = "bg-white rounded-2xl border border-brandBorder shadow-sm hover:shadow-md transition p-4 flex flex-col justify-between space-y-4 group relative";
+        
+        card.innerHTML = `
+          <div class="space-y-2.5">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-1.5 flex-wrap">${getProtBadge(recipe.prot)} ${getEquipBadge(recipe.equip)}</div>
+              <div class="flex items-center gap-2">
+                <button onclick="toggleFavorite(${recipe.id}); event.stopPropagation();" class="text-lg hover:scale-110 transition">${isFav ? '❤️' : '🤍'}</button>
+                <span class="text-xs text-stone-400 font-bold">#${recipe.id}</span>
+              </div>
+            </div>
+            <h3 onclick="openModal(${recipe.id})" class="font-bold text-base text-brandDark group-hover:text-brandPrimary cursor-pointer line-clamp-1">${recipe.title}</h3>
+            <p class="text-xs text-stone-500 line-clamp-2"><strong>Ingrédients:</strong> ${recipe.ingredients.slice(0, 3).map(i => i.name).join(', ')}...</p>
+          </div>
+          <div class="pt-3 border-t border-stone-100 flex items-center justify-between text-xs">
+            <button onclick="openModal(${recipe.id})" class="text-stone-600 font-semibold">📖 Voir recette</button>
+            <button onclick="toggleSelectRecipe(${recipe.id})" class="${isSelected ? 'bg-amber-100 text-amber-900 border border-amber-300' : 'bg-brandPrimary hover:bg-brandPrimaryHover text-white'} font-bold px-3 py-1.5 rounded-xl transition">${isSelected ? '✔️ Au menu' : '+ Au menu'}</button>
+          </div>
+        `;
+        grid.appendChild(card);
+      });
+    }
+
+    window.toggleFavFilter = () => {
+      showFavoritesOnly = !showFavoritesOnly;
+      const btn = document.getElementById('btn-fav-filter');
+      btn.className = showFavoritesOnly ? "active-filter bg-red-500 text-white px-4 py-2.5 rounded-xl transition text-sm font-semibold flex items-center gap-2 shrink-0" : "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 px-4 py-2.5 rounded-xl transition text-sm font-semibold flex items-center gap-2 shrink-0";
+      btn.innerHTML = showFavoritesOnly ? "❤️ Voir toutes" : "🤍 Mes Coups de Cœur";
+      renderRecipes();
+    }
+
+    window.toggleFavorite = (id) => {
+      if (favoriteRecipeIds.includes(id)) favoriteRecipeIds = favoriteRecipeIds.filter(fId => fId !== id);
+      else favoriteRecipeIds.push(id);
+      saveCloudState(); renderRecipes();
+    }
+
+    window.setProteinFilter = (prot) => {
+      currentProtFilter = prot;
+      document.querySelectorAll('.prot-filter').forEach(btn => {
+        btn.className = (btn.textContent.toLowerCase().includes(prot)) ? "prot-filter active-filter bg-brandPrimary text-white px-3 py-1.5 rounded-lg border font-medium" : "prot-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg";
+      });
+      renderRecipes();
+    }
+
+    window.setEquipFilter = (equip) => {
+      currentEquipFilter = equip;
+      document.querySelectorAll('.equip-filter').forEach(btn => {
+        const isActive = (equip === 'all' && btn.textContent.includes('Tous')) ||
+                         (equip === 'four' && btn.textContent.includes('Four')) ||
+                         (equip === 'thermomix' && btn.textContent.includes('Thermomix')) ||
+                         (equip === 'plaques' && btn.textContent.includes('Plaques'));
+        btn.className = isActive ? "equip-filter active-filter bg-brandPrimary text-white px-3 py-1.5 rounded-lg border font-medium" : "equip-filter border border-stone-200 bg-stone-50 text-stone-700 px-3 py-1.5 rounded-lg";
+      });
+      renderRecipes();
+    }
+
+    window.applyFilters = () => renderRecipes();
+    window.resetFilters = () => { document.getElementById('searchInput').value = ''; showFavoritesOnly = false; setProteinFilter('all'); setEquipFilter('all'); }
+    window.pickRandomRecipe = () => { const randomIndex = Math.floor(Math.random() * recipesData.length); openModal(recipesData[randomIndex].id); }
+
+    window.toggleSelectRecipe = (id) => {
+      if (selectedRecipeIds.includes(id)) selectedRecipeIds = selectedRecipeIds.filter(item => item !== id);
+      else selectedRecipeIds.push(id);
+      saveCloudState(); updateAllViews();
+    }
+
+    window.clearPlanning = () => { if (confirm("Voulez-vous réinitialiser votre menu ?")) { selectedRecipeIds = []; saveCloudState(); updateAllViews(); } }
+
+    function renderPlanning() {
+      const container = document.getElementById('planningListContainer');
+      container.innerHTML = '';
+      const count = selectedRecipeIds.length;
+      document.getElementById('planCountBig').innerText = count; 
+      document.getElementById('planPortionsBig').innerText = count * 4;
+      document.getElementById('headerMenuCount').innerText = `${count} plat${count > 1 ? 's' : ''}`; 
+      document.getElementById('planningTabBadge').innerText = count;
+
+      if (count === 0) {
+        container.innerHTML = `<div class="py-12 text-center text-stone-500 space-y-3"><p class="text-4xl">🍽️</p><p class="font-bold text-brandDark">Votre planning est vide.</p></div>`;
+        return;
+      }
+      selectedRecipeIds.forEach((id, index) => {
+        const recipe = recipesData.find(r => r.id === id); if (!recipe) return;
+        const row = document.createElement('div'); 
+        row.className = "flex flex-col sm:flex-row sm:items-center justify-between bg-stone-50 p-4 rounded-xl border gap-3";
+        row.innerHTML = `<div class="flex items-center space-x-3"><span class="bg-brandAccent text-white font-bold text-xs w-7 h-7 rounded-full flex items-center justify-center">J${index + 1}</span><div><div class="flex gap-2 mb-0.5">${getProtBadge(recipe.prot)} ${getEquipBadge(recipe.equip)}</div><h4 class="font-bold text-sm cursor-pointer" onclick="openModal(${recipe.id})">${recipe.title}</h4></div></div><div class="flex gap-2"><button onclick="openModal(${recipe.id})" class="bg-white border px-3 py-1.5 rounded-lg text-xs">📖</button><button onclick="toggleSelectRecipe(${recipe.id})" class="bg-red-50 text-red-600 font-bold px-2.5 py-1.5 rounded-lg text-xs">✕ Retirer</button></div>`;
+        container.appendChild(row);
+      });
+    }
+
+    function renderShoppingList() {
+      const container = document.getElementById('shoppingAislesContainer'); container.innerHTML = '';
+      const aisles = { "Boucherie / Poissonnerie": [], "Légumes & Fruits": [], "Épicerie & Féculents": [], "Produits Frais & Crémerie": [], "Divers / Hors Cuisine": [] };
+      selectedRecipeIds.forEach(id => { const recipe = recipesData.find(r => r.id === id); if (recipe) recipe.ingredients.forEach(ing => aisles[ing.aisle].push({name:ing.name, qty:ing.qty, from:recipe.title})); });
+      customShoppingItems.forEach((c, idx) => aisles[c.aisle].push({name:c.name, qty:"Manuel", isCustom:true, customIdx:idx}));
+      let totalItems = 0; let totalChecked = 0;
+
+      Object.keys(aisles).forEach(aisleName => {
+        if (aisles[aisleName].length === 0) return;
+        const card = document.createElement('div'); card.className = "bg-white p-4 rounded-2xl border shadow-sm print:break-inside-avoid";
+        let html = `<h3 class="font-bold text-sm text-brandDark border-b pb-2 flex items-center justify-between"><span>${aisleName}</span><span class="text-xs bg-stone-100 text-stone-600 px-2 py-0.5 rounded-full">${aisles[aisleName].length} art.</span></h3><ul class="space-y-2 text-xs mt-3">`;
+        aisles[aisleName].forEach(item => {
+          totalItems++; const key = `${aisleName}_${item.name}`.replace(/\s+/g, '_'); const isChecked = !!shoppingCheckedState[key]; if(isChecked) totalChecked++;
+          html += `<li class="flex items-start justify-between gap-2 p-1.5 rounded-lg ${isChecked ? 'bg-emerald-50/60 line-through text-stone-400' : ''}"><label class="flex flex-1 cursor-pointer"><input type="checkbox" onchange="toggleShoppingCheck('${key}')" ${isChecked ? 'checked' : ''} class="mt-0.5 mr-2 h-4 w-4 rounded"><div class="font-semibold">${item.name} <span class="text-stone-500 font-normal">(${item.qty})</span></div></label>${item.isCustom ? `<button onclick="removeCustomItem(${item.customIdx})" class="text-red-400">✕</button>` : ''}</li>`;
+        });
+        html += `</ul>`; card.innerHTML = html; container.appendChild(card);
+      });
+      document.getElementById('headerShoppingBadge').innerText = `${totalChecked}/${totalItems}`;
+    }
+
+    window.toggleShoppingCheck = (key) => { shoppingCheckedState[key] = !shoppingCheckedState[key]; saveCloudState(); renderShoppingList(); }
+    window.resetShoppingCheckboxes = () => { shoppingCheckedState = {}; saveCloudState(); renderShoppingList(); }
+    window.addCustomShoppingItem = () => { const inp=document.getElementById('customItemInput'); if(!inp.value.trim()) return; customShoppingItems.push({name:inp.value.trim(), aisle:document.getElementById('customItemAisle').value}); inp.value=''; saveCloudState(); renderShoppingList(); }
+    window.removeCustomItem = (idx) => { customShoppingItems.splice(idx, 1); saveCloudState(); renderShoppingList(); }
+
+    window.openModal = (id) => {
+      const recipe = recipesData.find(r => r.id === id); if (!recipe) return;
+      currentModalRecipeId = id;
+      document.getElementById('modalTitle').innerText = recipe.title; 
+      document.getElementById('modalPrepTime').innerText = recipe.prep; 
+      document.getElementById('modalCookTime').innerText = recipe.cook;
+      document.getElementById('modalBadges').innerHTML = `${getProtBadge(recipe.prot)} ${getEquipBadge(recipe.equip)}`;
+      
+      let equipText = 'Poêle/Plaques';
+      if(recipe.equip === 'four') equipText = 'Four Traditionnel';
+      else if(recipe.equip === 'thermomix') equipText = 'Thermomix';
+      document.getElementById('modalEquipText').innerText = equipText;
+      
+      const ingUl = document.getElementById('modalIngredientsList'); ingUl.innerHTML = '';
+      recipe.ingredients.forEach(i => { ingUl.innerHTML += `<li class="bg-stone-50 p-2 rounded-xl border text-xs">🔹 <strong>${i.name}</strong> (${i.qty})</li>`; });
+      
+      const stepOl = document.getElementById('modalStepsList'); stepOl.innerHTML = '';
+      recipe.steps.forEach(s => { stepOl.innerHTML += `<li>${s}</li>`; });
+      
+      document.getElementById('modalGamelleTip').innerText = recipe.gamelleTip; 
+      
+      document.getElementById('modalEditBtn').onclick = () => window.openRecipeForm(id);
+
+      updateModalBtnState();
+      document.getElementById('recipeModal').classList.remove('hidden');
+    }
+
+    function updateModalBtnState() {
+      const btn = document.getElementById('modalActionBtn'); const isSelected = selectedRecipeIds.includes(currentModalRecipeId);
+      btn.innerText = isSelected ? "✓ Au menu (Retirer)" : "+ Au menu";
+      btn.className = isSelected ? "bg-amber-600 text-white font-bold px-5 py-2.5 rounded-xl shadow" : "bg-brandPrimary text-white font-bold px-5 py-2.5 rounded-xl shadow";
+      btn.onclick = () => { toggleSelectRecipe(currentModalRecipeId); updateModalBtnState(); };
+    }
+    window.closeModal = () => document.getElementById('recipeModal').classList.add('hidden');
+
+    window.openRecipeForm = (recipeIdToEdit = null) => {
+      editingRecipeId = recipeIdToEdit;
+      const container = document.getElementById('dynamicIngredientsContainer');
+      container.innerHTML = '';
+      
+      if (recipeIdToEdit !== null) {
+        const r = recipesData.find(x => x.id === recipeIdToEdit);
+        document.getElementById('addRecipeModalTitle').innerText = "Modifier la recette";
+        document.getElementById('addRecipeModalBtn').innerText = "Mettre à jour la recette";
+        
+        document.getElementById('newRecTitle').value = r.title;
+        document.getElementById('newRecProt').value = r.prot;
+        document.getElementById('newRecEquip').value = r.equip;
+        document.getElementById('newRecPrep').value = r.prep;
+        document.getElementById('newRecCook').value = r.cook;
+        document.getElementById('newRecSteps').value = r.steps.join('\n');
+        document.getElementById('newRecTip').value = r.gamelleTip;
+        
+        r.ingredients.forEach(i => addIngredientRow(i.name, i.qty, i.aisle));
+      } else {
+        document.getElementById('addRecipeModalTitle').innerText = "Ajouter une nouvelle recette";
+        document.getElementById('addRecipeModalBtn').innerText = "Enregistrer la recette";
+        
+        document.getElementById('newRecTitle').value = '';
+        document.getElementById('newRecProt').value = 'poulet';
+        document.getElementById('newRecEquip').value = 'plaques';
+        document.getElementById('newRecPrep').value = '10 min';
+        document.getElementById('newRecCook').value = '15 min';
+        document.getElementById('newRecSteps').value = '';
+        document.getElementById('newRecTip').value = '';
+        
+        addIngredientRow(); 
+      }
+      
+      document.getElementById('recipeModal').classList.add('hidden');
+      document.getElementById('addRecipeModal').classList.remove('hidden');
+    };
+    
+    window.closeAddRecipeModal = () => document.getElementById('addRecipeModal').classList.add('hidden');
+
+    window.addIngredientRow = (name = '', qty = '', aisle = 'Épicerie & Féculents') => {
+      const container = document.getElementById('dynamicIngredientsContainer');
+      const row = document.createElement('div');
+      row.className = "flex gap-2 items-center bg-white p-2 rounded-xl border border-stone-200";
+      row.innerHTML = `
+        <input type="text" placeholder="Nom (ex: Riz)" value="${name}" class="ing-name flex-[2] bg-transparent text-sm focus:outline-none min-w-0">
+        <input type="text" placeholder="Qté (ex: 200g)" value="${qty}" class="ing-qty flex-[1] bg-transparent text-sm focus:outline-none min-w-0">
+        <select class="ing-aisle flex-[2] bg-stone-100 rounded-lg px-2 text-xs py-1.5 outline-none text-stone-600 min-w-0 truncate">
+          <option value="Boucherie / Poissonnerie" ${aisle.includes('Boucherie') ? 'selected' : ''}>🥩 Bouch/Poiss</option>
+          <option value="Légumes & Fruits" ${aisle.includes('Légumes') ? 'selected' : ''}>🥦 Lég/Fruits</option>
+          <option value="Épicerie & Féculents" ${aisle.includes('Épicerie') ? 'selected' : ''}>🌾 Épicerie</option>
+          <option value="Produits Frais & Crémerie" ${aisle.includes('Frais') ? 'selected' : ''}>🧀 Frais/Crème</option>
+          <option value="Divers / Hors Cuisine" ${aisle.includes('Divers') ? 'selected' : ''}>🛍️ Divers</option>
+        </select>
+        <button type="button" onclick="this.parentElement.remove()" class="text-red-400 hover:text-red-600 font-bold px-2">✕</button>
+      `;
+      container.appendChild(row);
+    };
+
+    window.submitNewRecipe = async () => {
+      const title = document.getElementById('newRecTitle').value.trim();
+      if(!title) return alert("Veuillez donner un titre à la recette.");
+      
+      const prot = document.getElementById('newRecProt').value;
+      const equip = document.getElementById('newRecEquip').value;
+      const prep = document.getElementById('newRecPrep').value;
+      const cook = document.getElementById('newRecCook').value;
+      const gamelleTip = document.getElementById('newRecTip').value;
+
+      const ingredients = [];
+      document.querySelectorAll('#dynamicIngredientsContainer > div').forEach(row => {
+        const name = row.querySelector('.ing-name').value.trim();
+        const qty = row.querySelector('.ing-qty').value.trim() || "1";
+        const aisle = row.querySelector('.ing-aisle').value;
+        if(name) { ingredients.push({ name, qty, aisle }); }
+      });
+
+      if(ingredients.length === 0) {
+        return alert("Veuillez ajouter au moins un ingrédient valide !");
+      }
+
+      const steps = document.getElementById('newRecSteps').value.split('\n').filter(s => s.trim() !== "");
+
+      if (editingRecipeId !== null) {
+        const idx = recipesData.findIndex(r => r.id === editingRecipeId);
+        if (idx > -1) {
+          recipesData[idx] = {
+            ...recipesData[idx],
+            title, prot, equip, prep, cook, ingredients, steps,
+            gamelleTip: gamelleTip || "Idéal pour le batch cooking.",
+            isModified: true 
+          };
+        }
+      } else {
+        const highestId = Math.max(111, ...recipesData.map(r => r.id));
+        const newId = highestId + 1;
+        
+        const newRecipe = {
+          id: newId,
+          title, prot, equip, prep, cook, ingredients, steps, 
+          gamelleTip: gamelleTip || "Idéal pour le batch cooking."
+        };
+        recipesData.push(newRecipe);
+      }
+
+      saveCloudState();
+      closeAddRecipeModal();
+      updateAllViews(); 
+    };
+
+    window.switchTab = (tabId) => {
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('text-brandPrimary','border-brandPrimary','font-semibold'));
+      document.querySelectorAll('.nav-tab').forEach(t => t.classList.add('text-stone-500','border-transparent'));
+      const activeTab = document.getElementById(`tab-${tabId}`); activeTab.classList.remove('text-stone-500','border-transparent'); activeTab.classList.add('text-brandPrimary','border-brandPrimary','font-semibold');
+      ['recipes','planning','shopping','dashboard'].forEach(id => document.getElementById(`sec-${id}`).classList.add('hidden'));
+      document.getElementById(`sec-${tabId}`).classList.remove('hidden');
+    }
+
+    function updateAllViews() { 
+      renderRecipes(); 
+      renderPlanning(); 
+      renderShoppingList(); 
+    }
+  </script>
+</body>
+</html>
